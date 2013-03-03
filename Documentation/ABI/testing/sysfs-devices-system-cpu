@@ -53,6 +53,28 @@ Description:	Dynamic addition and removal of CPU's.  This is not hotplug
 		the system.  Information writtento the file to remove CPU's
 		is architecture specific.
 
+What:		/sys/devices/system/cpu/sched_balance_policy/current_sched_balance_policy
+		/sys/devices/system/cpu/sched_balance_policy/available_sched_balance_policy
+Date:		Oct 2012
+Contact:	Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Description:	CFS balance policy show and set interface.
+
+		available_sched_balance_policy: shows there are 2 kinds of
+		policies:
+			performance powersaving.
+		current_sched_balance_policy: shows current scheduler policy.
+		User can change the policy by writing it.
+
+		Policy decides the CFS scheduler how to balance tasks onto
+		different CPU unit.
+
+		performance: try to spread tasks onto more CPU sockets,
+		more CPU cores. performance oriented.
+
+		powersaving: try to pack tasks onto same core or same CPU
+		until every LCPUs are busy in the core or CPU socket.
+		powersaving oriented.
+
 What:		/sys/devices/system/cpu/cpu#/node
 Date:		October 2009
 Contact:	Linux memory management mailing list <linux-mm@kvack.org>

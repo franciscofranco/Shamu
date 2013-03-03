@@ -1809,14 +1809,10 @@ static void __sched_fork(struct task_struct *p)
 
 	INIT_LIST_HEAD(&p->se.group_node);
 
-/*
- * Load-tracking only depends on SMP, FAIR_GROUP_SCHED dependency below may be
- * removed when useful for applications beyond shares distribution (e.g.
- * load-balance).
- */
-#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
+#ifdef CONFIG_SMP
 	p->se.avg.runnable_avg_period = 0;
 	p->se.avg.runnable_avg_sum = 0;
+	p->se.avg.decay_count = 0;
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	memset(&p->se.statistics, 0, sizeof(p->se.statistics));
@@ -1903,6 +1899,11 @@ void sched_fork(struct task_struct *p)
 		 */
 		p->sched_reset_on_fork = 0;
 	}
+
+	/* New forked task assumed with full utilization */
+#if defined(CONFIG_SMP)
+	p->se.avg.load_avg_contrib = p->se.load.weight;
+#endif
 
 	if (!rt_prio(p->prio))
 		p->sched_class = &fair_sched_class;
