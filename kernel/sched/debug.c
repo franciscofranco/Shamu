@@ -319,6 +319,7 @@ do {									\
 
 	P(ttwu_count);
 	P(ttwu_local);
+	P(util);
 
 #undef P
 #undef P64

@@ -762,7 +762,7 @@ enum cpu_idle_type {
 };
 
 /*
- * Increase resolution of cpu_power calculations
+ * Increase resolution of cpu_power and rq->util calculations
  */
 #define SCHED_POWER_SHIFT	10
 #define SCHED_POWER_SCALE	(1L << SCHED_POWER_SHIFT)
@@ -823,6 +823,7 @@ struct sched_domain {
 	unsigned long last_balance;	/* init to jiffies. units in jiffies */
 	unsigned int balance_interval;	/* initialise to 1. units in ms. */
 	unsigned int nr_balance_failed; /* initialise to 0 */
+	u64	perf_lb_record;	/* performance balance record */
 
 	u64 last_update;
 
@@ -1025,12 +1026,7 @@ struct sched_entity {
 	struct cfs_rq		*my_q;
 #endif
 
-/*
- * Load-tracking only depends on SMP, FAIR_GROUP_SCHED dependency below may be
- * removed when useful for applications beyond shares distribution (e.g.
- * load-balance).
- */
-#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
+#ifdef CONFIG_SMP
 	/* Per-entity load-tracking */
 	struct sched_avg	avg;
 #endif
