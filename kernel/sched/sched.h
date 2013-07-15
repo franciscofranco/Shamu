@@ -281,7 +281,6 @@ struct cfs_rq {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	u32 tg_runnable_contrib;
 	unsigned long tg_load_contrib;
-#endif /* CONFIG_FAIR_GROUP_SCHED */
 
 	/*
 	 *   h_load = weight * f(tg)
@@ -290,6 +289,9 @@ struct cfs_rq {
 	 * this group.
 	 */
 	unsigned long h_load;
+	u64 last_h_load_update;
+	struct sched_entity *h_load_next;
+#endif /* CONFIG_FAIR_GROUP_SCHED */
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -432,9 +434,6 @@ struct rq {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* list of leaf cfs_rq on this cpu: */
 	struct list_head leaf_cfs_rq_list;
-#ifdef CONFIG_SMP
-	unsigned long h_load_throttle;
-#endif /* CONFIG_SMP */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 
 #ifdef CONFIG_RT_GROUP_SCHED
