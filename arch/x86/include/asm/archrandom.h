@@ -68,6 +68,21 @@ GET_RANDOM(arch_get_random_int, unsigned int, RDRAND_INT, ASM_NOP3);
 
 #endif /* CONFIG_X86_64 */
 
+#define arch_has_random()	static_cpu_has(X86_FEATURE_RDRAND)
+#define arch_has_random_seed()	static_cpu_has(X86_FEATURE_RDSEED)
+
+#else
+
+static inline int rdrand_long(unsigned long *v)
+{
+	return 0;
+}
+
+static inline bool rdseed_long(unsigned long *v)
+{
+	return 0;
+}
+
 #endif  /* CONFIG_ARCH_RANDOM */
 
 extern void x86_init_rdrand(struct cpuinfo_x86 *c);
