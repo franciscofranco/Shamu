@@ -299,6 +299,18 @@ __read_mostly int scheduler_running;
  */
 int sysctl_sched_rt_runtime = 950000;
 
+/*
+ * Number of sched_yield calls that result in a thread yielding
+ * to itself before a sleep is injected in its next sched_yield call
+ * Setting this to -1 will disable adding sleep in sched_yield
+ */
+const_debug int sysctl_sched_yield_sleep_threshold = 4;
+
+/*
+ * Sleep duration in us used when sched_yield_sleep_threshold
+ * is exceeded.
+ */
+const_debug unsigned int sysctl_sched_yield_sleep_duration = 50;
 
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
@@ -3223,6 +3235,7 @@ need_resched:
 	if (likely(prev != next)) {
 		rq->nr_switches++;
 		rq->curr = next;
+		prev->yield_count = 0;
 		++*switch_count;
 
 		context_switch(rq, prev, next); /* unlocks the rq */
@@ -3234,8 +3247,10 @@ need_resched:
 		 */
 		cpu = smp_processor_id();
 		rq = cpu_rq(cpu);
-	} else
+	} else {
+		prev->yield_count++;
 		raw_spin_unlock_irq(&rq->lock);
+	}
 
 	post_schedule(rq);
 
@@ -4540,6 +4555,8 @@ SYSCALL_DEFINE0(sched_yield)
 	struct rq *rq = this_rq_lock();
 
 	schedstat_inc(rq, yld_count);
+	if (rq->curr->yield_count == sysctl_sched_yield_sleep_threshold)
+		schedstat_inc(rq, yield_sleep_count);
 	current->sched_class->yield_task(rq);
 
 	/*
@@ -4551,7 +4568,11 @@ SYSCALL_DEFINE0(sched_yield)
 	do_raw_spin_unlock(&rq->lock);
 	sched_preempt_enable_no_resched();
 
-	schedule();
+	if (rq->curr->yield_count == sysctl_sched_yield_sleep_threshold)
+		usleep_range(sysctl_sched_yield_sleep_duration,
+				sysctl_sched_yield_sleep_duration + 5);
+	else
+		schedule();
 
 	return 0;
 }
