@@ -1327,7 +1327,7 @@ restart:
 	sk->sk_state	= TCP_ESTABLISHED;
 	sock_hold(newsk);
 
-	smp_mb__after_atomic_inc();	/* sock_hold() does an atomic_inc() */
+	smp_mb__after_atomic();	/* sock_hold() does an atomic_inc() */
 	unix_peer(sk)	= newsk;
 
 	unix_state_unlock(sk);
