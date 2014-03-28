@@ -222,7 +222,7 @@ int ion_heap_buffer_zero(struct ion_buffer *buffer)
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
-		unsigned long len = sg_dma_len(sg);
+		unsigned long len = sg->length;
 
 		for (j = 0; j < len / PAGE_SIZE; j++)
 			pages_mem.pages[npages++] = page + j;
