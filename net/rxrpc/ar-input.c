@@ -115,7 +115,7 @@ int rxrpc_queue_rcv_skb(struct rxrpc_call *call, struct sk_buff *skb,
 			spin_unlock_bh(&sk->sk_receive_queue.lock);
 
 			if (!sock_flag(sk, SOCK_DEAD))
-				sk->sk_data_ready(sk, skb_len);
+				sk->sk_data_ready(sk);
 		}
 		skb = NULL;
 	} else {
@@ -668,7 +668,7 @@ static void rxrpc_post_packet_to_conn(struct rxrpc_connection *conn,
  * handle data received on the local endpoint
  * - may be called in interrupt context
  */
-void rxrpc_data_ready(struct sock *sk, int count)
+void rxrpc_data_ready(struct sock *sk)
 {
 	struct rxrpc_connection *conn;
 	struct rxrpc_transport *trans;
@@ -678,7 +678,7 @@ void rxrpc_data_ready(struct sock *sk, int count)
 	struct sk_buff *skb;
 	int ret;
 
-	_enter("%p, %d", sk, count);
+	_enter("%p", sk);
 
 	ASSERT(!irqs_disabled());
 
