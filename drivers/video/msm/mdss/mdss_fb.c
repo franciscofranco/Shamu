@@ -1295,7 +1295,7 @@ static inline void __mdss_fb_set_page_protection(struct vm_area_struct *vma,
 
 static inline int mdss_fb_create_ion_client(struct msm_fb_data_type *mfd)
 {
-	mfd->fb_ion_client  = msm_ion_client_create(-1 , "mdss_fb_iclient");
+	mfd->fb_ion_client  = msm_ion_client_create("mdss_fb_iclient");
 	if (IS_ERR_OR_NULL(mfd->fb_ion_client)) {
 		pr_err("Err:client not created, val %d\n",
 				PTR_RET(mfd->fb_ion_client));
