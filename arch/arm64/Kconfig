@@ -3,6 +3,7 @@ config ARM64
 	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
 	select ARCH_USE_CMPXCHG_LOCKREF
 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+	select ARCH_SUPPORTS_ATOMIC_RMW
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
 	select ARCH_WANT_FRAME_POINTERS
@@ -61,8 +62,6 @@ config MMU
 config NO_IOPORT
 	def_bool y
 
-<<<<<<< HEAD
-=======
 config ARCH_MMAP_RND_BITS_MIN
        default 14 if ARM64_64K_PAGES
        default 18
@@ -84,7 +83,6 @@ config ILLEGAL_POINTER_VALUE
 	hex
 	default 0xdead000000000000
 
->>>>>>> 0896a27... BACKPORT: FROMLIST: arm64: mm: support ARCH_MMAP_RND_BITS.
 config STACKTRACE_SUPPORT
 	def_bool y
 
