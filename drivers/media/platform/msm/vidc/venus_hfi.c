@@ -79,16 +79,6 @@ struct tzbsp_video_set_state_req {
 	u32 spare; /*reserved for future, should be zero*/
 };
 
-#define VENUS_SET_STATE(__device, __state) {\
-		mutex_lock(&(__device)->write_lock);	\
-		mutex_lock(&(__device)->read_lock);		\
-		(__device)->state = __state;			\
-		mutex_unlock(&(__device)->write_lock);	\
-		mutex_unlock(&(__device)->read_lock); }
-
-#define IS_VENUS_IN_VALID_STATE(__device) (\
-		(__device)->state != VENUS_STATE_DEINIT)
-
 static void venus_hfi_pm_hndlr(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_hndlr);
 
@@ -101,6 +91,22 @@ static inline int venus_hfi_prepare_enable_clks(
 	struct venus_hfi_device *device);
 static inline void venus_hfi_disable_unprepare_clks(
 	struct venus_hfi_device *device);
+
+static inline void venus_hfi_set_state(struct venus_hfi_device *device,
+		enum venus_hfi_state state)
+{
+	mutex_lock(&device->write_lock);
+	mutex_lock(&device->read_lock);
+	device->state = state;
+	mutex_unlock(&device->write_lock);
+	mutex_unlock(&device->read_lock);
+}
+
+static inline bool venus_hfi_core_in_valid_state(
+		struct venus_hfi_device *device)
+{
+	return device->state != VENUS_STATE_DEINIT;
+}
 
 static void venus_hfi_dump_packet(u8 *packet)
 {
@@ -1626,7 +1632,7 @@ static int venus_hfi_iface_cmdq_write_nolock(struct venus_hfi_device *device,
 	WARN(!mutex_is_locked(&device->write_lock),
 			"Cmd queue write lock must be acquired");
 
-	if (!IS_VENUS_IN_VALID_STATE(device)) {
+	if (!venus_hfi_core_in_valid_state(device)) {
 		dprintk(VIDC_ERR, "%s - fw not in init state\n", __func__);
 		result = -EINVAL;
 		goto err_q_null;
@@ -1695,8 +1701,8 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		return -EINVAL;
 	}
 	mutex_lock(&device->read_lock);
-	if (!IS_VENUS_IN_VALID_STATE(device)) {
-		dprintk(VIDC_ERR, "%s - fw not in init state\n", __func__);
+	if (!venus_hfi_core_in_valid_state(device)) {
+		dprintk(VIDC_DBG, "%s - fw not in init state\n", __func__);
 		rc = -EINVAL;
 		goto read_error_null;
 	}
@@ -1736,8 +1742,8 @@ static int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 		return -EINVAL;
 	}
 	mutex_lock(&device->read_lock);
-	if (!IS_VENUS_IN_VALID_STATE(device)) {
-		dprintk(VIDC_ERR, "%s - fw not in init state\n", __func__);
+	if (!venus_hfi_core_in_valid_state(device)) {
+		dprintk(VIDC_DBG, "%s - fw not in init state\n", __func__);
 		rc = -EINVAL;
 		goto dbg_error_null;
 	}
@@ -2096,7 +2102,7 @@ static int venus_hfi_core_init(void *device)
 		return -ENODEV;
 	}
 
-	VENUS_SET_STATE(dev, VENUS_STATE_INIT);
+	venus_hfi_set_state(dev, VENUS_STATE_INIT);
 
 	dev->intr_status = 0;
 	INIT_LIST_HEAD(&dev->sess_head);
@@ -2150,7 +2156,7 @@ static int venus_hfi_core_init(void *device)
 
 	return rc;
 err_core_init:
-	VENUS_SET_STATE(dev, VENUS_STATE_DEINIT);
+	venus_hfi_set_state(dev, VENUS_STATE_DEINIT);
 	disable_irq_nosync(dev->hal_data->irq);
 	return rc;
 }
@@ -2187,7 +2193,7 @@ static int venus_hfi_core_release(void *device)
 			disable_irq_nosync(dev->hal_data->irq);
 		dev->intr_status = 0;
 	}
-	VENUS_SET_STATE(dev, VENUS_STATE_DEINIT);
+	venus_hfi_set_state(dev, VENUS_STATE_DEINIT);
 
 	dprintk(VIDC_INFO, "HAL exited\n");
 	return 0;
