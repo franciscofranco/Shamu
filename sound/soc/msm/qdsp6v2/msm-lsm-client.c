@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
+#include <linux/freezer.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -153,7 +154,9 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			pr_err("%s: copy from user data failed\n"
 			       "data %p size %d\n", __func__,
 			       snd_model_v2.data, snd_model_v2.data_size);
+			q6lsm_snd_model_buf_free(prtd->lsm_client);
 			rc = -EFAULT;
+			break;
 		}
 		if (!rc) {
 			pr_debug("SND Model Magic no byte[0] %x,\n"
@@ -169,6 +172,8 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			       "levels num of level from user = %d\n",
 			       __func__, num_levels);
 				rc = -ENOMEM;
+				q6lsm_snd_model_buf_free(prtd->lsm_client);
+				break;
 		}
 		prtd->lsm_client->confidence_levels = confidence_level;
 		if (copy_from_user(prtd->lsm_client->confidence_levels,
@@ -211,6 +216,7 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			pr_err("%s: copy from user data failed data %p size %d\n",
 			       __func__, snd_model.data, snd_model.data_size);
 			rc = -EFAULT;
+			q6lsm_snd_model_buf_free(prtd->lsm_client);
 			break;
 		}
 		rc = q6lsm_set_kw_sensitivity_level(prtd->lsm_client,
@@ -218,6 +224,7 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 						snd_model.min_user_confidence);
 		if (rc) {
 			pr_err("%s: Error in KW sensitivity %x", __func__, rc);
+			q6lsm_snd_model_buf_free(prtd->lsm_client);
 			break;
 		}
 
@@ -240,20 +247,29 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	case SNDRV_LSM_EVENT_STATUS:
 		pr_debug("%s: Get event status\n", __func__);
 		atomic_set(&prtd->event_wait_stop, 0);
-		rc = wait_event_interruptible(prtd->event_wait,
+		rc = wait_event_freezable(prtd->event_wait,
 				(cmpxchg(&prtd->event_avail, 1, 0) ||
 				 (xchg = atomic_cmpxchg(&prtd->event_wait_stop,
 							1, 0))));
-		pr_debug("%s: wait_event_interruptible %d event_wait_stop %d\n",
+		pr_debug("%s: wait_event_freezable %d event_wait_stop %d\n",
 			 __func__, rc, xchg);
 		if (!rc && !xchg) {
 			pr_debug("%s: New event available %ld\n", __func__,
 				 prtd->event_avail);
 			spin_lock_irqsave(&prtd->event_lock, flags);
-			if (prtd->event_status)
+			if (prtd->event_status) {
 				size = sizeof(*(prtd->event_status)) +
 				prtd->event_status->payload_size;
-			spin_unlock_irqrestore(&prtd->event_lock, flags);
+				spin_unlock_irqrestore(&prtd->event_lock,
+						       flags);
+			} else {
+				spin_unlock_irqrestore(&prtd->event_lock,
+						       flags);
+				rc = -EINVAL;
+				pr_err("%s: prtd->event_status is NULL\n",
+					__func__);
+				break;
+			}
 			if (user->payload_size <
 			    prtd->event_status->payload_size) {
 				pr_debug("%s: provided %dbytes isn't enough, needs %dbytes\n",
@@ -481,8 +497,32 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 	unsigned long flags;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct lsm_priv *prtd = runtime->private_data;
+	int ret = 0;
 
 	pr_debug("%s\n", __func__);
+	if (prtd->lsm_client->started) {
+		ret = q6lsm_stop(prtd->lsm_client, true);
+		if (ret)
+			pr_err("%s: session stop failed, err = %d\n",
+				__func__, ret);
+		else
+			pr_debug("%s: LSM client session stopped %d\n",
+				 __func__, ret);
+
+		/*
+		 * Go Ahead and try de-register sound model,
+		 * even if stop failed
+		 */
+		prtd->lsm_client->started = false;
+
+		ret = q6lsm_deregister_sound_model(prtd->lsm_client);
+		if (ret)
+			pr_err("%s: dereg_snd_model failed, err = %d\n",
+				__func__, ret);
+		else
+			pr_debug("%s: dereg_snd_model succesful\n",
+				 __func__);
+	}
 
 	q6lsm_close(prtd->lsm_client);
 	q6lsm_client_free(prtd->lsm_client);

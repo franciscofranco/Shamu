@@ -44,7 +44,12 @@ static const struct snd_pcm_hardware no_host_hardware = {
 	.period_bytes_max	= PAGE_SIZE >> 1,
 	.periods_min		= 2,
 	.periods_max		= 4,
-	.buffer_bytes_max	= PAGE_SIZE,
+	/*
+	 * Increase the max buffer bytes as PAGE_SIZE bytes is
+	 * not enough to encompass all the scenarios sent by
+	 * userspapce.
+	 */
+	.buffer_bytes_max	= PAGE_SIZE * 4,
 };
 
 /* DPCM stream event, send event to FE and all active BEs. */
@@ -459,6 +464,11 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_START);
+
 	if (rtd->dai_link->ops && rtd->dai_link->ops->prepare) {
 		ret = rtd->dai_link->ops->prepare(substream);
 		if (ret < 0) {
@@ -502,12 +512,21 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 		cancel_delayed_work(&rtd->delayed_work);
 	}
 
-	snd_soc_dapm_stream_event(rtd, substream->stream,
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		if (codec_dai->capture_active == 1)
+			snd_soc_dapm_stream_event(rtd,
+			SNDRV_PCM_STREAM_CAPTURE,
 			SND_SOC_DAPM_STREAM_START);
-
+	}
 	snd_soc_dai_digital_mute(codec_dai, 0, substream->stream);
-
 out:
+	if (ret < 0 && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_err("%s: Issue stop stream for codec_dai due to op failure %d = ret\n",
+		__func__, ret);
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_STOP);
+	}
 	mutex_unlock(&rtd->pcm_mutex);
 	return ret;
 }
@@ -527,6 +546,17 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
+
+	/* perform any hw_params fixups */
+	if ((rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) &&
+				rtd->dai_link->be_hw_params_fixup) {
+		ret = rtd->dai_link->be_hw_params_fixup(rtd,
+				params);
+		if (ret < 0) {
+			dev_err(rtd->card->dev, "ASoC: fixup failed for %s\n",
+			rtd->dai_link->name);
+		}
+	}
 
 	if (rtd->dai_link->ops && rtd->dai_link->ops->hw_params) {
 		ret = rtd->dai_link->ops->hw_params(substream, params);
