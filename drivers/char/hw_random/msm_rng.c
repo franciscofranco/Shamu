@@ -120,6 +120,12 @@ int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev, void *data)
 	pdev = msm_rng_dev->pdev;
 	base = msm_rng_dev->base;
 
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_dev->qrng_perf_client, 1);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
 	/* enable PRNG clock */
 	ret = clk_prepare_enable(msm_rng_dev->prng_clk);
 	if (ret) {
@@ -145,6 +151,13 @@ int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev, void *data)
 
 	/* vote to turn off clock */
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
+
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_dev->qrng_perf_client, 0);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
 
 	val = 0L;
 	return currsize;
@@ -185,6 +198,13 @@ static int msm_rng_drbg_read(struct hwrng *rng,
 	} else
 		ret1 = 1;
 
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_dev->qrng_perf_client, 1);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
+
 	/* read random data from h/w */
 	/* enable PRNG clock */
 	ret = clk_prepare_enable(msm_rng_dev->prng_clk);
@@ -215,6 +235,13 @@ static int msm_rng_drbg_read(struct hwrng *rng,
 	} while (currsize < maxsize);
 	/* vote to turn off clock */
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
+
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_dev->qrng_perf_client, 0);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
 
 	up(&msm_rng_dev->drbg_sem);
 
@@ -370,6 +397,14 @@ static int msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 		mb();
 	}
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
+
+	if (msm_rng_dev->qrng_perf_client) {
+		ret = msm_bus_scale_client_update_request(
+				msm_rng_dev->qrng_perf_client, 0);
+		if (ret)
+			pr_err("bus_scale_client_update_req failed!\n");
+	}
+
 	return 0;
 }
 
