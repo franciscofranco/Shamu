@@ -901,6 +901,9 @@ enum v4l2_mpeg_vidc_video_ltrmode {
 #define V4L2_CID_MPEG_VIDC_VIDEO_BFRAME_Y_RANGE \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 62)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 57)
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)

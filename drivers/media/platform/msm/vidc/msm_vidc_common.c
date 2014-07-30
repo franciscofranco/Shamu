@@ -65,16 +65,7 @@ static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 
 static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 {
-	if (inst->session_type == MSM_VIDC_DECODER) {
-		int rc = 0;
-		struct v4l2_control ctrl = {
-			.id = V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE
-		};
-		rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
-		if (!rc && ctrl.value)
-			return true;
-	}
-	return false;
+	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
@@ -674,7 +665,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 		case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
 			{
 				struct v4l2_event buf_event = {0};
-				struct buffer_info *binfo = NULL;
+				struct buffer_info *binfo = NULL, *temp = NULL;
 				u32 *ptr = NULL;
 
 				dprintk(VIDC_DBG,
@@ -717,8 +708,14 @@ static void handle_event_change(enum command_response cmd, void *data)
 					ptr[0], ptr[1]);
 
 				mutex_lock(&inst->sync_lock);
+
 				/* Decrement buffer reference count*/
-				buf_ref_put(inst, binfo);
+				list_for_each_entry(temp, &inst->registered_bufs, list) {
+					if (temp == binfo) {
+						buf_ref_put(inst, binfo);
+						break;
+					}
+				}
 
 				/*
 				* Release buffer and remove from list
@@ -1449,7 +1446,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 		default:
 			break;
 		}
-		if (msm_vidc_dcvs_mode && inst->dcvs_mode) {
+		if (msm_vidc_dcvs_mode && inst->dcvs_mode &&
+			fill_buf_done->filled_len1) {
 			msm_comm_monitor_ftb(inst);
 			rc = msm_comm_scale_clocks_dcvs(inst, true);
 			if (rc)
@@ -1864,10 +1862,10 @@ static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
 		* more than high threshold
 		*/
 		if (!dcvs->change_initial_freq &&
-			buffers_outside_fw > dcvs->threshold_disp_buf_high)
+			buffers_outside_fw >= dcvs->threshold_disp_buf_high)
 			dcvs->change_initial_freq = true;
 
-		if (buffers_outside_fw > dcvs->threshold_disp_buf_high &&
+		if (buffers_outside_fw >= dcvs->threshold_disp_buf_high &&
 			!dcvs->prev_freq_increased) {
 			dcvs->load = dcvs->load_low;
 			dcvs->prev_freq_lowered = true;
@@ -1969,43 +1967,6 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
-}
-
-static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-
-	if (!core || !core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-	hdev = core->device;
-
-	if (core->state == VIDC_CORE_INVALID) {
-		dprintk(VIDC_ERR,
-				"Core is in bad state. Cannot unset ocmem\n");
-		return -EIO;
-	}
-
-	init_completion(
-		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
-
-	rc = call_hfi_op(hdev, unset_ocmem, hdev->hfi_device_data);
-	if (rc) {
-		dprintk(VIDC_INFO, "Failed to unset OCMEM on driver\n");
-		goto release_ocmem_failed;
-	}
-	rc = wait_for_completion_timeout(
-		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)],
-		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
-	if (!rc) {
-		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n",
-				SYS_MSG_INDEX(RELEASE_RESOURCE_DONE));
-		rc = -EIO;
-	}
-release_ocmem_failed:
-	return rc;
 }
 
 static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
@@ -2238,7 +2199,6 @@ static int msm_vidc_load_resources(int flipped_state,
 	int rc = 0;
 	struct hfi_device *hdev;
 	int num_mbs_per_sec = 0;
-	int height, width;
 	struct msm_vidc_core *core;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
 		LOAD_CALC_IGNORE_THUMBNAIL_LOAD;
@@ -2275,27 +2235,7 @@ static int msm_vidc_load_resources(int flipped_state,
 						inst, inst->state);
 		goto exit;
 	}
-	if (core->resources.ocmem_size) {
-		height = max(inst->prop.height[CAPTURE_PORT],
-			inst->prop.height[OUTPUT_PORT]);
-		width = max(inst->prop.width[CAPTURE_PORT],
-			inst->prop.width[OUTPUT_PORT]);
-		rc = msm_comm_vote_bus(core);
-		if (!rc) {
-			mutex_lock(&core->lock);
-			rc = call_hfi_op(hdev, alloc_ocmem,
-					hdev->hfi_device_data,
-					core->resources.ocmem_size);
-			mutex_unlock(&core->lock);
-			if (rc) {
-				dprintk(VIDC_WARN,
-				"Failed to allocate OCMEM. Performance will be impacted\n");
-			}
-		} else {
-			dprintk(VIDC_WARN,
-			"Failed to vote for OCMEM BW. Performance will be impacted\n");
-		}
-	}
+
 	rc = call_hfi_op(hdev, session_load_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2435,6 +2375,33 @@ static int msm_comm_session_close(int flipped_state,
 	}
 	change_inst_state(inst, MSM_VIDC_CLOSE);
 exit:
+	return rc;
+}
+
+int msm_comm_suspend(int core_id)
+{
+	struct hfi_device *hdev;
+	struct msm_vidc_core *core;
+	int rc = 0;
+
+	core = get_vidc_core(core_id);
+	if (!core) {
+		dprintk(VIDC_ERR,
+			"%s: Failed to find core for core_id = %d\n",
+			__func__, core_id);
+		return -EINVAL;
+	}
+
+	hdev = (struct hfi_device *)core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "%s Invalid device handle\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
+	if (rc)
+		dprintk(VIDC_WARN, "Failed to suspend\n");
+
 	return rc;
 }
 
@@ -4242,12 +4209,6 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 	if (list_empty(&core->instances) &&
 		core->state != VIDC_CORE_UNINIT) {
 		if (core->state > VIDC_CORE_INIT) {
-			if (core->resources.ocmem_size) {
-				if (core->state != VIDC_CORE_INVALID)
-					msm_comm_unset_ocmem(core);
-				call_hfi_op(hdev, free_ocmem,
-						hdev->hfi_device_data);
-			}
 			dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
 			rc = call_hfi_op(hdev, core_release,
 					hdev->hfi_device_data);
