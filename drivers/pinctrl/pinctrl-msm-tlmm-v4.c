@@ -560,11 +560,15 @@ static irqreturn_t msm_tlmm_v4_gp_handle_irq(int irq,
 {
 	unsigned long i;
 	unsigned int virq = 0;
+	struct irq_chip *chip;
 	struct irq_desc *desc = irq_to_desc(irq);
-	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct msm_pintype_info *pinfo = ic_to_pintype(ic);
 	struct gpio_chip *gc = pintype_get_gc(pinfo);
 
+	if (unlikely(!desc))
+		return IRQ_HANDLED;
+
+	chip = irq_desc_get_chip(desc);
 	chained_irq_enter(chip, desc);
 	for_each_set_bit(i, ic->enabled_irqs, ic->num_irqs) {
 		dev_dbg(ic->dev, "hwirq in bit mask %d\n", (unsigned int)i);
@@ -912,6 +916,8 @@ static int msm_tlmm_v4_probe(struct platform_device *pdev)
 	match = of_match_node(msm_tlmm_v4_dt_match, node);
 	if (IS_ERR(match))
 		return PTR_ERR(match);
+	else if (!match)
+		return -ENODEV;
 	pinfo = match->data;
 	tlmm_desc = devm_kzalloc(&pdev->dev, sizeof(*tlmm_desc), GFP_KERNEL);
 	if (!tlmm_desc) {
