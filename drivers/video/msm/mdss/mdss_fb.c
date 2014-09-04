@@ -1612,11 +1612,11 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->pixclock = panel_info->clk_rate / 1000;
 
 	/*
-	 * Populate smem length with fb size. smem_len gets
-	 * over written if physically contiguous  memory is
-	 * allocated at boot time
+	 * Populate smem length here for uspace to get the
+	 * Framebuffer size when FBIO_FSCREENINFO ioctl is
+	 * called.
 	 */
-	fix->smem_len = fix->line_length * var->yres_virtual;
+	fix->smem_len = PAGE_ALIGN(fix->line_length * var->yres) * mfd->fb_page;
 
 	/* id field for fb app  */
 	id = (int *)&mfd->panel;
