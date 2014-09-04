@@ -380,7 +380,8 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 		ret = get_user(smd_pkt_devp->blocking_write, (int *)arg);
 		break;
 	default:
-		pr_err("%s: Unrecognized ioctl command %d\n", __func__, cmd);
+		pr_err_ratelimited("%s: Unrecognized ioctl command %d\n",
+			__func__, cmd);
 		ret = -ENOIOCTLCMD;
 	}
 	mutex_unlock(&smd_pkt_devp->ch_lock);
@@ -402,12 +403,12 @@ ssize_t smd_pkt_read(struct file *file,
 	smd_pkt_devp = file->private_data;
 
 	if (!smd_pkt_devp) {
-		pr_err("%s on NULL smd_pkt_dev\n", __func__);
+		pr_err_ratelimited("%s on NULL smd_pkt_dev\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!smd_pkt_devp->ch) {
-		pr_err("%s on a closed smd_pkt_dev id:%d\n",
+		pr_err_ratelimited("%s on a closed smd_pkt_dev id:%d\n",
 			__func__, smd_pkt_devp->i);
 		return -EINVAL;
 	}
@@ -436,7 +437,7 @@ wait_for_packet:
 
 	if (!smd_pkt_devp->ch) {
 		mutex_unlock(&smd_pkt_devp->rx_lock);
-		pr_err("%s on a closed smd_pkt_dev id:%d\n",
+		pr_err_ratelimited("%s on a closed smd_pkt_dev id:%d\n",
 			__func__, smd_pkt_devp->i);
 		return -EINVAL;
 	}
@@ -446,7 +447,7 @@ wait_for_packet:
 		/* qualify error message */
 		if (r != -ERESTARTSYS) {
 			/* we get this anytime a signal comes in */
-			pr_err("%s: wait_event_interruptible on smd_pkt_dev id:%d ret %i\n",
+			pr_err_ratelimited("%s: wait_event_interruptible on smd_pkt_dev id:%d ret %i\n",
 				__func__, smd_pkt_devp->i, r);
 		}
 		return r;
@@ -456,20 +457,20 @@ wait_for_packet:
 	pkt_size = smd_cur_packet_size(smd_pkt_devp->ch);
 
 	if (!pkt_size) {
-		pr_err("%s: No data on smd_pkt_dev id:%d, False wakeup\n",
+		pr_err_ratelimited("%s: No data on smd_pkt_dev id:%d, False wakeup\n",
 			__func__, smd_pkt_devp->i);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
 		goto wait_for_packet;
 	}
 
 	if (pkt_size < 0) {
-		pr_err("%s: Error %d obtaining packet size for Channel %s",
+		pr_err_ratelimited("%s: Error %d obtaining packet size for Channel %s",
 				__func__, pkt_size, smd_pkt_devp->ch_name);
 		return pkt_size;
 	}
 
 	if ((uint32_t)pkt_size > count) {
-		pr_err("%s: failure on smd_pkt_dev id: %d - packet size %d > buffer size %zu,",
+		pr_err_ratelimited("%s: failure on smd_pkt_dev id: %d - packet size %d > buffer size %zu,",
 			__func__, smd_pkt_devp->i,
 			pkt_size, count);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
@@ -487,7 +488,8 @@ wait_for_packet:
 				E_SMD_PKT_SSR(smd_pkt_devp);
 				return notify_reset(smd_pkt_devp);
 			}
-			pr_err("%s Error while reading %d\n", __func__, r);
+			pr_err_ratelimited("%s Error while reading %d\n",
+				__func__, r);
 			return r;
 		}
 		bytes_read += r;
@@ -537,12 +539,12 @@ ssize_t smd_pkt_write(struct file *file,
 	smd_pkt_devp = file->private_data;
 
 	if (!smd_pkt_devp) {
-		pr_err("%s on NULL smd_pkt_dev\n", __func__);
+		pr_err_ratelimited("%s on NULL smd_pkt_dev\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!smd_pkt_devp->ch) {
-		pr_err("%s on a closed smd_pkt_dev id:%d\n",
+		pr_err_ratelimited("%s on a closed smd_pkt_dev id:%d\n",
 			__func__, smd_pkt_devp->i);
 		return -EINVAL;
 	}
@@ -558,7 +560,7 @@ ssize_t smd_pkt_write(struct file *file,
 	mutex_lock(&smd_pkt_devp->tx_lock);
 	if (!smd_pkt_devp->blocking_write) {
 		if (smd_write_avail(smd_pkt_devp->ch) < count) {
-			pr_err("%s: Not enough space in smd_pkt_dev id:%d\n",
+			pr_err_ratelimited("%s: Not enough space in smd_pkt_dev id:%d\n",
 				   __func__, smd_pkt_devp->i);
 			mutex_unlock(&smd_pkt_devp->tx_lock);
 			return -ENOMEM;
@@ -568,7 +570,7 @@ ssize_t smd_pkt_write(struct file *file,
 	r = smd_write_start(smd_pkt_devp->ch, count);
 	if (r < 0) {
 		mutex_unlock(&smd_pkt_devp->tx_lock);
-		pr_err("%s: Error:%d in smd_pkt_dev id:%d @ smd_write_start\n",
+		pr_err_ratelimited("%s: Error:%d in smd_pkt_dev id:%d @ smd_write_start\n",
 			__func__, r, smd_pkt_devp->i);
 		return r;
 	}
@@ -599,7 +601,7 @@ ssize_t smd_pkt_write(struct file *file,
 					E_SMD_PKT_SSR(smd_pkt_devp);
 					return notify_reset(smd_pkt_devp);
 				}
-				pr_err("%s on smd_pkt_dev id:%d failed r:%d\n",
+				pr_err_ratelimited("%s on smd_pkt_dev id:%d failed r:%d\n",
 					__func__, smd_pkt_devp->i, r);
 				return r;
 			}
@@ -621,7 +623,7 @@ static unsigned int smd_pkt_poll(struct file *file, poll_table *wait)
 
 	smd_pkt_devp = file->private_data;
 	if (!smd_pkt_devp) {
-		pr_err("%s on a NULL device\n", __func__);
+		pr_err_ratelimited("%s on a NULL device\n", __func__);
 		return POLLERR;
 	}
 
@@ -1019,7 +1021,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 	smd_pkt_devp = container_of(inode->i_cdev, struct smd_pkt_dev, cdev);
 
 	if (!smd_pkt_devp) {
-		pr_err("%s on a NULL device\n", __func__);
+		pr_err_ratelimited("%s on a NULL device\n", __func__);
 		return -EINVAL;
 	}
 	D_STATUS("Begin %s on smd_pkt_dev id:%d\n", __func__, smd_pkt_devp->i);
@@ -1032,7 +1034,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 
 		r = smd_pkt_add_driver(smd_pkt_devp);
 		if (r) {
-			pr_err("%s: %s Platform driver reg. failed\n",
+			pr_err_ratelimited("%s: %s Platform driver reg. failed\n",
 				__func__, smd_pkt_devp->ch_name);
 			goto out;
 		}
@@ -1042,7 +1044,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			smd_pkt_devp->pil = subsystem_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
 				r = PTR_ERR(smd_pkt_devp->pil);
-				pr_err("%s failed on smd_pkt_dev id:%d - subsystem_get failed for %s\n",
+				pr_err_ratelimited("%s failed on smd_pkt_dev id:%d - subsystem_get failed for %s\n",
 					__func__, smd_pkt_devp->i, peripheral);
 				/*
 				 * Sleep inorder to reduce the frequency of
@@ -1079,7 +1081,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			if (r == 0)
 				r = -ETIMEDOUT;
 			if (r < 0) {
-				pr_err("%s: wait on smd_pkt_dev id:%d allocation failed rc:%d\n",
+				pr_err_ratelimited("%s: wait on smd_pkt_dev id:%d allocation failed rc:%d\n",
 					__func__, smd_pkt_devp->i, r);
 				goto release_pil;
 			}
@@ -1091,7 +1093,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 					   smd_pkt_devp,
 					   ch_notify);
 		if (r < 0) {
-			pr_err("%s: %s open failed %d\n", __func__,
+			pr_err_ratelimited("%s: %s open failed %d\n", __func__,
 			       smd_pkt_devp->ch_name, r);
 			goto release_pil;
 		}
@@ -1107,10 +1109,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		}
 
 		if (r < 0) {
-			pr_err("%s: wait on smd_pkt_dev id:%d OPEN event failed rc:%d\n",
+			pr_err_ratelimited("%s: wait on smd_pkt_dev id:%d OPEN event failed rc:%d\n",
 				__func__, smd_pkt_devp->i, r);
 		} else if (!smd_pkt_devp->is_open) {
-			pr_err("%s: Invalid OPEN event on smd_pkt_dev id:%d\n",
+			pr_err_ratelimited("%s: Invalid OPEN event on smd_pkt_dev id:%d\n",
 				__func__, smd_pkt_devp->i);
 			r = -ENODEV;
 		} else {
@@ -1145,7 +1147,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 	struct smd_pkt_dev *smd_pkt_devp = file->private_data;
 
 	if (!smd_pkt_devp) {
-		pr_err("%s on a NULL device\n", __func__);
+		pr_err_ratelimited("%s on a NULL device\n", __func__);
 		return -EINVAL;
 	}
 	D_STATUS("Begin %s on smd_pkt_dev id:%d\n",
