@@ -1625,11 +1625,39 @@ static int sdhci_get_tuning_cmd(struct sdhci_host *host)
 		return MMC_SEND_TUNING_BLOCK;
 }
 
+static void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync)
+{
+	if (enable && !host->irq_enabled) {
+		enable_irq(host->irq);
+		host->irq_enabled = true;
+	} else if (!enable && host->irq_enabled) {
+		if (sync)
+			disable_irq(host->irq);
+		else
+			disable_irq_nosync(host->irq);
+		host->irq_enabled = false;
+	}
+}
+
+#define SDHCI_SPIN_LOCK(host, enable)					\
+	do {								\
+		if (enable) {						\
+			sdhci_cfg_irq(host, !enable, true);		\
+			if (host->ops->cfg_power_irq)			\
+				host->ops->cfg_power_irq(host, !enable);\
+			spin_lock(&host->lock);				\
+		} else {						\
+			spin_unlock(&host->lock);			\
+			sdhci_cfg_irq(host, !enable, true);		\
+			if (host->ops->cfg_power_irq)			\
+				host->ops->cfg_power_irq(host, !enable);\
+		}							\
+	} while (0)
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
 	int present;
-	unsigned long flags;
 	u32 tuning_opcode;
 
 	host = mmc_priv(mmc);
@@ -1662,7 +1690,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 					SDHCI_CARD_PRESENT;
 	}
 
-	spin_lock_irqsave(&host->lock, flags);
+	SDHCI_SPIN_LOCK(host, true);
 
 	WARN_ON(host->mrq != NULL);
 
@@ -1708,9 +1736,9 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 					MMC_SEND_TUNING_BLOCK;
 				host->mrq = NULL;
 				host->flags &= ~SDHCI_NEEDS_RETUNING;
-				spin_unlock_irqrestore(&host->lock, flags);
+				SDHCI_SPIN_LOCK(host, false);
 				sdhci_execute_tuning(mmc, tuning_opcode);
-				spin_lock_irqsave(&host->lock, flags);
+				SDHCI_SPIN_LOCK(host, true);
 
 				/* Restore original mmc_request structure */
 				host->mrq = mrq;
@@ -1733,7 +1761,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	mmiowb();
-	spin_unlock_irqrestore(&host->lock, flags);
+	SDHCI_SPIN_LOCK(host, false);
 }
 
 static void sdhci_cfg_async_intr(struct sdhci_host *host, bool enable)
@@ -1750,17 +1778,6 @@ static void sdhci_cfg_async_intr(struct sdhci_host *host, bool enable)
 		sdhci_writew(host, sdhci_readw(host, SDHCI_HOST_CONTROL2) &
 			     ~SDHCI_CTRL_ASYNC_INT_ENABLE,
 			     SDHCI_HOST_CONTROL2);
-}
-
-static void sdhci_cfg_irq(struct sdhci_host *host, bool enable)
-{
-	if (enable && !host->irq_enabled) {
-		enable_irq(host->irq);
-		host->irq_enabled = true;
-	} else if (!enable && host->irq_enabled) {
-		disable_irq_nosync(host->irq);
-		host->irq_enabled = false;
-	}
 }
 
 static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
@@ -1780,7 +1797,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 	spin_lock_irqsave(&host->lock, flags);
 	/* lock is being released intermittently below, hence disable irq */
-	sdhci_cfg_irq(host, false);
+	sdhci_cfg_irq(host, false, false);
 	spin_unlock_irqrestore(&host->lock, flags);
 	if (ios->clock) {
 		sdhci_set_clock(host, ios->clock);
@@ -1823,7 +1840,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	}
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clock) {
-		sdhci_cfg_irq(host, true);
+		sdhci_cfg_irq(host, true, false);
 		spin_unlock_irqrestore(&host->lock, flags);
 		mutex_unlock(&host->ios_mutex);
 		return;
@@ -2004,7 +2021,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		sdhci_set_clock(host, ios->clock);
 	}
 	spin_lock_irqsave(&host->lock, flags);
-	sdhci_cfg_irq(host, true);
+	sdhci_cfg_irq(host, true, false);
 	spin_unlock_irqrestore(&host->lock, flags);
 	mmiowb();
 	mutex_unlock(&host->ios_mutex);
@@ -3026,7 +3043,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	if (!host->clock && host->mmc->card &&
 	    mmc_card_sdio(host->mmc->card)) {
 		/* SDIO async. interrupt is level-sensitive */
-		sdhci_cfg_irq(host, false);
+		sdhci_cfg_irq(host, false, false);
 		pr_debug("%s: got async-irq: clocks: %d gated: %d host-irq[en:1/dis:0]: %d\n",
 			mmc_hostname(host->mmc), host->clock,
 			host->mmc->clk_gated, host->irq_enabled);
