@@ -939,6 +939,8 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 	req->vert_deci = pipe->vert_deci;
 
+	pipe->dirty = false;
+
 	*ppipe = pipe;
 
 	mdss_mdp_pipe_unmap(pipe);
@@ -961,6 +963,7 @@ exit_fail:
 		pr_debug("freeing allocations for pipe %d\n", pipe->num);
 		mdss_mdp_smp_unreserve(pipe);
 		pipe->params_changed = 0;
+		pipe->dirty = true;
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 	return ret;
