@@ -379,6 +379,7 @@ extern void irq_cpu_online(void);
 extern void irq_cpu_offline(void);
 extern int irq_set_affinity_locked(struct irq_data *data,
 				   const struct cpumask *cpumask, bool force);
+extern void irq_affinity_notify(struct work_struct *work);
 
 #ifdef CONFIG_GENERIC_HARDIRQS
 
