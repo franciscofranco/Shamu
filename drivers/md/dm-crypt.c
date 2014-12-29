@@ -22,6 +22,7 @@
 #include <linux/atomic.h>
 #include <linux/scatterlist.h>
 #include <linux/rbtree.h>
+#include <linux/sched/rt.h>
 #include <asm/page.h>
 #include <asm/unaligned.h>
 #include <crypto/hash.h>
@@ -1201,9 +1202,17 @@ static void kcryptd_async_done(struct crypto_async_request *async_req,
 		kcryptd_crypt_write_io_submit(io);
 }
 
+/**
+ * Very high priority. Max is -20 but we would be mad to boost it that high
+ * Needs testing to see if this impacts user experience
+ */
+static int _kcryptd_nice = -15;
+
 static void kcryptd_crypt(struct work_struct *work)
 {
 	struct dm_crypt_io *io = container_of(work, struct dm_crypt_io, work);
+
+	set_user_nice(current, _kcryptd_nice);
 
 	if (bio_data_dir(io->base_bio) == READ)
 		kcryptd_crypt_read_convert(io);
@@ -1539,6 +1548,8 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	const char *opt_string;
 	char dummy;
 
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 2 };
+
 	static struct dm_arg _args[] = {
 		{0, 1, "Invalid number of feature args"},
 	};
@@ -1648,7 +1659,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 
 	cc->crypt_queue = alloc_workqueue("kcryptd",
 					  WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM |
-					  WQ_UNBOUND, num_online_cpus());
+					  WQ_UNBOUND, num_possible_cpus());
 	if (!cc->crypt_queue) {
 		ti->error = "Couldn't create kcryptd queue";
 		goto bad;
@@ -1664,6 +1675,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		ti->error = "Couldn't spawn write thread";
 		goto bad;
 	}
+	sched_setscheduler_nocheck(cc->write_thread, SCHED_FIFO, &param);
 	wake_up_process(cc->write_thread);
 
 	ti->num_flush_bios = 1;
