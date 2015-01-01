@@ -51,6 +51,16 @@
 
 static void adreno_input_work(struct work_struct *work);
 
+/*
+ * The default values for the simpleondemand governor are 90 and 5,
+ * we use different values here.
+ * They have to be tuned and compare with the tz governor anyway.
+ */
+static struct devfreq_simple_ondemand_data adreno_ondemand_data = {
+	.upthreshold = 80,
+	.downdifferential = 20,
+};
+
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.bus = {
 		.max = 350,
@@ -58,12 +68,18 @@ static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.device_id = KGSL_DEVICE_3D0,
 };
 
+static const struct devfreq_governor_data adreno_governors[] = {
+	{ .name = "simple_ondemand", .data = &adreno_ondemand_data },
+	{ .name = "msm-adreno-tz", .data = &adreno_tz_data },
+};
+
 static const struct kgsl_functable adreno_functable;
 
 static struct adreno_device device_3d0 = {
 	.dev = {
 		KGSL_DEVICE_COMMON_INIT(device_3d0.dev),
-		.pwrscale = KGSL_PWRSCALE_INIT(&adreno_tz_data),
+		.pwrscale = KGSL_PWRSCALE_INIT(adreno_governors,
+					ARRAY_SIZE(adreno_governors)),
 		.name = DEVICE_3D0_NAME,
 		.id = KGSL_DEVICE_3D0,
 		.pwrctrl = {
@@ -142,37 +158,15 @@ static void adreno_input_event(struct input_handle *handle, unsigned int type,
 	struct kgsl_device *device = handle->handler->private;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	/* Only consider EV_ABS (touch) events */
-	if (type != EV_ABS)
-		return;
-
 	/*
-	 * Don't do anything if anything hasn't been rendered since we've been
-	 * here before
+	 * Only queue the work under certain circumstances: we have to be in
+	 * slumber, the event has to be EV_EBS and we had to have processed an
+	 * IB since the last time we called wake on touch.
 	 */
-
-	if (device->flags & KGSL_FLAG_WAKE_ON_TOUCH)
-		return;
-
-	/*
-	 * If the device is in nap, kick the idle timer to make sure that we
-	 * don't go into slumber before the first render. If the device is
-	 * already in slumber schedule the wake.
-	 */
-
-	if (device->state == KGSL_STATE_NAP) {
-		/*
-		 * Set the wake on touch bit to keep from coming back here and
-		 * keeping the device in nap without rendering
-		 */
-
-		device->flags |= KGSL_FLAG_WAKE_ON_TOUCH;
-
-		mod_timer(&device->idle_timer,
-			jiffies + device->pwrctrl.interval_timeout);
-	} else if (device->state == KGSL_STATE_SLUMBER) {
+	if ((type == EV_ABS) &&
+		!(device->flags & KGSL_FLAG_WAKE_ON_TOUCH) &&
+		(device->state == KGSL_STATE_SLUMBER))
 		schedule_work(&adreno_dev->input_work);
-	}
 }
 
 #ifdef CONFIG_INPUT
@@ -228,10 +222,6 @@ static const struct input_device_id adreno_input_ids[] = {
 	{
 		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
 		.evbit = { BIT_MASK(EV_ABS) },
-		/* assumption: MT_.._X & MT_.._Y are in the same long */
-		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
-				BIT_MASK(ABS_MT_POSITION_X) |
-				BIT_MASK(ABS_MT_POSITION_Y) },
 	},
 	{ },
 };
@@ -2682,8 +2672,6 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 	adreno_clear_gpu_fault(adreno_dev);
-	/* since device is oficially off now clear start bit */
-	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
 	/* Delete the idle timer */
 	del_timer_sync(&device->idle_timer);
@@ -2727,7 +2715,6 @@ static int adreno_soft_reset(struct kgsl_device *device)
 		return ret;
 
 	device->reset_counter++;
-	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
 	return 0;
 }
