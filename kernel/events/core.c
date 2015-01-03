@@ -1309,7 +1309,6 @@ static void __ref perf_remove_from_context(struct perf_event *event)
 		/*
 		 * Per cpu events are removed via an smp call
 		 */
-		cpu_function_call(event->cpu, __perf_remove_from_context, event);
 		ret = cpu_function_call(event->cpu, __perf_remove_from_context,
 					event);
 		if (ret == -ENXIO)
