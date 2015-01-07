@@ -592,7 +592,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			size_t size)
 {
 	int pcount = 0, order, ret = 0;
-	int j, len, page_size, sglen_alloc, sglen = 0;
+	int j, len, sglen_alloc, sglen = 0;
 	struct page **pages = NULL;
 	pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
 	void *ptr;
@@ -600,11 +600,6 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	int step = ((VMALLOC_END - VMALLOC_START)/8) >> PAGE_SHIFT;
 
 	align = (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
-
-	page_size = PAGE_SIZE;
-	/* update align flags for what we actually use */
-	if (page_size != PAGE_SIZE)
-		kgsl_memdesc_set_align(memdesc, ilog2(page_size));
 
 	/*
 	 * There needs to be enough room in the sg structure to be able to
@@ -644,31 +639,10 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 
 	while (len > 0) {
 		struct page *page;
-		unsigned int gfp_mask = __GFP_HIGHMEM;
-		int j;
 
-		/* don't waste space at the end of the allocation*/
-		if (len < page_size)
-			page_size = PAGE_SIZE;
-
-		/*
-		 * Don't do some of the more aggressive memory recovery
-		 * techniques for large order allocations
-		 */
-		if (page_size != PAGE_SIZE)
-			gfp_mask |= __GFP_COMP | __GFP_NORETRY |
-				__GFP_NO_KSWAPD | __GFP_NOWARN;
-		else
-			gfp_mask |= GFP_KERNEL;
-
-		page = alloc_pages(gfp_mask, get_order(page_size));
+		page = alloc_page(GFP_KERNEL | __GFP_ZERO);
 
 		if (page == NULL) {
-			if (page_size != PAGE_SIZE) {
-				page_size = PAGE_SIZE;
-				continue;
-			}
-
 			/*
 			 * Update sglen and memdesc size,as requested allocation
 			 * not served fully. So that they can be correctly freed
@@ -685,11 +659,12 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			goto done;
 		}
 
-		for (j = 0; j < page_size >> PAGE_SHIFT; j++)
-			pages[pcount++] = nth_page(page, j);
+		ptr = kmap_atomic(page);
+		dmac_flush_range(ptr, ptr + PAGE_SIZE);
+		kunmap_atomic(ptr);
 
-		sg_set_page(&memdesc->sg[sglen++], page, page_size, 0);
-		len -= page_size;
+		sg_set_page(&memdesc->sg[sglen++], page, PAGE_SIZE, 0);
+		len -= PAGE_SIZE;
 	}
 
 	memdesc->sglen = sglen;
