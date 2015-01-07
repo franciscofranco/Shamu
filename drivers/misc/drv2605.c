@@ -163,7 +163,11 @@
 #define I2C_RETRY_DELAY		20 /* ms */
 #define I2C_RETRIES		5
 
-static int rtp_strength = 0x7F;
+/*
+ * Default RTP_STRENGTH is 0x7F which in decimal is 127
+ * it's a little to harsh, let's try 100 as the default
+ */
+static int rtp_strength = 0x64;
 
 static struct drv260x {
 	struct class *class;
@@ -1174,26 +1178,25 @@ static struct file_operations fops = {
 static ssize_t show_rtp_strength(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	size_t count = 0;
-	count += sprintf(buf, "%d\n", rtp_strength - 27);
-	return count;
+	return snprintf(buf, PAGE_SIZE, "%d\n", rtp_strength);
 }
 
 static ssize_t store_rtp_strength(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	int ret, input;
-	ret = sscanf(buf, "%d", &input);
-	if (ret != 1) {
-		return -EINVAL;
-	}
+	int ret;
+	unsigned long input;
+
+	ret = kstrtoul(buf, 0, &input);
+	if (ret < 0)
+		return ret;
 
 	if (input > 100)
 		input = 100;
 	else if (input < 0)
 		input = 0;
 
-	rtp_strength = input + 27;
+	rtp_strength = input;
 	return count;
 }
 
