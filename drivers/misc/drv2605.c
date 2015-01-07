@@ -1175,7 +1175,7 @@ static ssize_t show_rtp_strength(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	size_t count = 0;
-	count += sprintf(buf, "%d\n", rtp_strength);
+	count += sprintf(buf, "%d\n", rtp_strength - 27);
 	return count;
 }
 
