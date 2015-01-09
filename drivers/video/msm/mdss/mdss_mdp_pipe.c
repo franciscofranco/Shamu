@@ -240,18 +240,6 @@ void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe)
 	mutex_unlock(&mdss_mdp_smp_lock);
 }
 
-static inline bool is_unused_smp_allowed(void)
-{
-        struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-        switch (MDSS_GET_MAJOR_MINOR(mdata->mdp_rev)) {
-        case MDSS_GET_MAJOR_MINOR(MDSS_MDP_HW_REV_103):
-                return true;
-        default:
-                return false;
-        }
-}
-
 int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
