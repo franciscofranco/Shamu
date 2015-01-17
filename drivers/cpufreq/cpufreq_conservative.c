@@ -17,7 +17,7 @@
 /* Conservative governor macros */
 #define DEF_FREQUENCY_UP_THRESHOLD		(95)
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(30)
-#define DEF_FREQUENCY_TWOSTEP_THRESHOLD	(70)
+#define DEF_FREQUENCY_TWOSTEP_THRESHOLD	(60)
 #define DEF_FREQUENCY_STEP			(5)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
@@ -70,9 +70,10 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		if (dbs_info->requested_freq == policy->max)
 			return;
 
-		if (load < cs_tuners->up_threshold && cs_tuners->twostep_counter++ < 2)
+		if (load < cs_tuners->up_threshold && cs_tuners->twostep_counter++ < 2) {
+			cs_tuners->twostep_time = ktime_to_us(ktime_get());
 			dbs_info->requested_freq = policy->max / 2;
-		else {
+		} else {
 			dbs_info->requested_freq += get_freq_target(cs_tuners, policy);
 			cs_tuners->twostep_counter = 0;
 		}
@@ -93,14 +94,23 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	/* Check for frequency decrease */
 	if (load < cs_tuners->down_threshold) {
 		unsigned int freq_target;
+		u64 now;
+		/*
+		 * we're scaling down, so reset the counter if
+		 * the conditions are met
+		 */
+		if (cs_tuners->twostep_counter) {
+			now = ktime_to_us(ktime_get());
+
+			if ((now - cs_tuners->twostep_time) >= 150000)
+                		cs_tuners->twostep_counter = 0;
+		}
+
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
 		 */
 		if (policy->cur == policy->min)
 			return;
-
-		/* we're scaling down, so reset the counter */
-		cs_tuners->twostep_counter = 0;
 
 		freq_target = get_freq_target(cs_tuners, policy);
 		if (dbs_info->requested_freq > freq_target)
