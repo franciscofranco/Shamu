@@ -26,9 +26,9 @@
 static DEFINE_PER_CPU(struct cs_cpu_dbs_info_s, cs_cpu_dbs_info);
 
 static inline unsigned int get_freq_target(struct cs_dbs_tuners *cs_tuners,
-					   struct cpufreq_policy *policy)
+					   unsigned int freq_mult)
 {
-	unsigned int freq_target = (cs_tuners->freq_step * policy->max) / 100;
+	unsigned int freq_target = (cs_tuners->freq_step * freq_mult) / 100;
 
 	/* max freq cannot be less than 100. But who knows... */
 	if (unlikely(freq_target == 0))
@@ -52,6 +52,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
+	u64 now;
 
 	cpufreq_notify_utilization(policy, load);
 
@@ -62,19 +63,22 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	if (cs_tuners->freq_step == 0)
 		return;
 
+	now = ktime_to_us(ktime_get());
+
 	/* Check for frequency increase */
 	if (load > DEF_FREQUENCY_TWOSTEP_THRESHOLD) {
-		dbs_info->down_skip = 0;
+		if (load >= cs_tuners->up_threshold)
+			dbs_info->down_skip = 0;
 
 		/* if we are already at full speed then break out early */
 		if (dbs_info->requested_freq == policy->max)
 			return;
 
 		if (load < cs_tuners->up_threshold && cs_tuners->twostep_counter++ < 2) {
-			cs_tuners->twostep_time = ktime_to_us(ktime_get());
-			dbs_info->requested_freq = policy->max / 2;
+			cs_tuners->twostep_time = now;
+			dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max >> 2);
 		} else {
-			dbs_info->requested_freq += get_freq_target(cs_tuners, policy);
+			dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max);
 			cs_tuners->twostep_counter = 0;
 		}
 
@@ -94,14 +98,11 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	/* Check for frequency decrease */
 	if (load < cs_tuners->down_threshold) {
 		unsigned int freq_target;
-		u64 now;
 		/*
 		 * we're scaling down, so reset the counter if
 		 * the conditions are met
 		 */
 		if (cs_tuners->twostep_counter) {
-			now = ktime_to_us(ktime_get());
-
 			if ((now - cs_tuners->twostep_time) >= 150000)
                 		cs_tuners->twostep_counter = 0;
 		}
@@ -112,7 +113,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		if (policy->cur == policy->min)
 			return;
 
-		freq_target = get_freq_target(cs_tuners, policy);
+		freq_target = get_freq_target(cs_tuners, policy->max);
 		if (dbs_info->requested_freq > freq_target)
 			dbs_info->requested_freq -= freq_target;
 		else
