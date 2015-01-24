@@ -78,12 +78,17 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			cs_tuners->twostep_time = now;
 			dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max >> 2);
 		} else {
-			dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max);
+			if (load >= cs_tuners->up_threshold)
+				dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max);
+
 			cs_tuners->twostep_counter = 0;
 		}
 
 		if (dbs_info->requested_freq > policy->max)
 			dbs_info->requested_freq = policy->max;
+
+		if (dbs_info->requested_freq == policy->cur)
+			return;
 
 		__cpufreq_driver_target(policy, dbs_info->requested_freq,
 			CPUFREQ_RELATION_H);
