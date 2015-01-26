@@ -1491,7 +1491,7 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				dhd->early_suspended = 1;
 #endif
 				/* Kernel suspended */
-				DHD_ERROR(("%s: force extra Suspend setting \n", __FUNCTION__));
+				DHD_INFO(("%s: force extra Suspend setting \n", __FUNCTION__));
 #ifdef CUSTOM_SET_SHORT_DWELL_TIME
 				dhd_set_short_dwell_time(dhd, TRUE);
 #endif
@@ -1554,7 +1554,7 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				dhd->early_suspended = 0;
 #endif
 				/* Kernel resumed  */
-				DHD_ERROR(("%s: Remove extra suspend setting \n", __FUNCTION__));
+				DHD_INFO(("%s: Remove extra suspend setting \n", __FUNCTION__));
 #ifdef CUSTOM_SET_SHORT_DWELL_TIME
 				dhd_set_short_dwell_time(dhd, FALSE);
 #endif
