@@ -1191,8 +1191,8 @@ static ssize_t store_rtp_strength(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	if (input > 100)
-		input = 100;
+	if (input > 127)
+		input = 127;
 	else if (input < 0)
 		input = 0;
 
