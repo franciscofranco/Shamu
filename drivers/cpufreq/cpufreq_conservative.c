@@ -13,6 +13,7 @@
 
 #include <linux/slab.h>
 #include "cpufreq_governor.h"
+#include <linux/touchboost.h>
 
 /* Conservative governor macros */
 #define DEF_FREQUENCY_UP_THRESHOLD		(95)
@@ -22,6 +23,8 @@
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE	(10000)
+#define BOOST_DURATION_US			(40000)
+#define BOOST_FREQ_VAL				(1500000)
 
 static DEFINE_PER_CPU(struct cs_cpu_dbs_info_s, cs_cpu_dbs_info);
 
@@ -52,6 +55,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
+	bool boosted;
 	u64 now;
 
 	cpufreq_notify_utilization(policy, load);
@@ -64,6 +68,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		return;
 
 	now = ktime_to_us(ktime_get());
+	boosted = now < (get_input_time() + BOOST_DURATION_US);
 
 	/* Check for frequency increase */
 	if (load > DEF_FREQUENCY_TWOSTEP_THRESHOLD) {
@@ -84,6 +89,10 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			cs_tuners->twostep_counter = 0;
 		}
 
+		if (boosted && policy->cur < BOOST_FREQ_VAL
+				&& dbs_info->requested_freq < BOOST_FREQ_VAL)
+			dbs_info->requested_freq = BOOST_FREQ_VAL;
+
 		if (dbs_info->requested_freq > policy->max)
 			dbs_info->requested_freq = policy->max;
 
@@ -103,6 +112,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	/* Check for frequency decrease */
 	if (load < cs_tuners->down_threshold) {
 		unsigned int freq_target;
+
 		/*
 		 * we're scaling down, so reset the counter if
 		 * the conditions are met
@@ -111,6 +121,9 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			if ((now - cs_tuners->twostep_time) >= 150000)
                 		cs_tuners->twostep_counter = 0;
 		}
+
+		if (boosted && policy->cur <= BOOST_FREQ_VAL)
+			return;
 
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
