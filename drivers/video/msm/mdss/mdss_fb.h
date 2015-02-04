@@ -36,6 +36,9 @@
 /* Display op timeout should be greater than total timeout */
 #define WAIT_DISP_OP_TIMEOUT ((WAIT_FENCE_FIRST_TIMEOUT + \
 		WAIT_FENCE_FINAL_TIMEOUT) * MDP_MAX_FENCE_FD)
+#define WAIT_MAX_FENCE_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT + \
+					WAIT_FENCE_FINAL_TIMEOUT)
+#define WAIT_MIN_FENCE_TIMEOUT  (1)
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
