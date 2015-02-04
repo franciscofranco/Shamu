@@ -38,7 +38,9 @@
  * are already quite long and proceed without any further waits. */
 #define WAIT_DISP_OP_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT + \
 		WAIT_FENCE_FINAL_TIMEOUT + 1)
-
+#define WAIT_MAX_FENCE_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT + \
+                                        WAIT_FENCE_FINAL_TIMEOUT)
+#define WAIT_MIN_FENCE_TIMEOUT  (1)
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
