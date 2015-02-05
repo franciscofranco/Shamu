@@ -109,7 +109,7 @@ static int nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
 
 #define DEFAULT_BOOSTPULSE_DURATION 40000
 static int boostpulse_duration_val = DEFAULT_BOOSTPULSE_DURATION;
-#define DEFAULT_INPUT_BOOST_FREQ 1500000
+#define DEFAULT_INPUT_BOOST_FREQ 1497600
 unsigned int input_boost_freq = DEFAULT_INPUT_BOOST_FREQ;
 
 /*
