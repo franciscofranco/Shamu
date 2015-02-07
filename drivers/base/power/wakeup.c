@@ -15,6 +15,10 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <trace/events/power.h>
+#include <linux/moduleparam.h>
+
+static bool enable_si_ws = true;
+module_param(enable_si_ws, bool, 0644);
 
 #include "power.h"
 
@@ -388,6 +392,10 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
 
+	if (!enable_si_ws && !strcmp(ws->name, "sensor_ind")) {
+		pr_info("wakeup source sensor_ind activate skipped\n");
+		return;
+	}
 	/*
 	 * active wakeup source should bring the system
 	 * out of PM_SUSPEND_FREEZE state
