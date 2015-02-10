@@ -3463,6 +3463,8 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	if (msm_uport->clk_state != MSM_HS_CLK_OFF) {
 		/* to balance clk_state */
 		msm_hs_clock_unvote(msm_uport);
+		if (wake_lock_active(&msm_uport->dma_wake_lock))
+			wake_unlock(&msm_uport->dma_wake_lock);
 	}
 
 	pm_runtime_disable(uport->dev);
