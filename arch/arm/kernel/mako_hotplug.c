@@ -41,7 +41,7 @@
 #define MIN_CPU_UP_US (500 * USEC_PER_MSEC)
 #define NUM_POSSIBLE_CPUS num_possible_cpus()
 #define HIGH_LOAD (95 << 1)
-#define MAX_FREQ_CAP 1036800
+#define MAX_FREQ_CAP 1497600
 
 struct cpu_stats {
 	unsigned int counter;
