@@ -24,6 +24,7 @@
 #include <linux/msm_thermal.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/hrtimer.h>
 
 unsigned int temp_threshold = 70;
 module_param(temp_threshold, int, 0644);
@@ -34,12 +35,16 @@ static struct thermal_info {
 	unsigned int safe_diff;
 	bool throttling;
 	bool pending_change;
+	const int min_interval_us;
+	u64 limit_cpu_time;
 } info = {
 	.cpuinfo_max_freq = LONG_MAX,
 	.limited_max_freq = LONG_MAX,
 	.safe_diff = 5,
 	.throttling = false,
 	.pending_change = false,
+	/* 1 second */
+	.min_interval_us = 1000000,
 };
 
 enum thermal_freqs {
@@ -90,12 +95,11 @@ static void limit_cpu_freqs(uint32_t max_freq)
 		return;
 
 	info.limited_max_freq = max_freq;
-
 	info.pending_change = true;
+	info.limit_cpu_time = ktime_to_us(ktime_get());
 
 	get_online_cpus();
-	for_each_online_cpu(cpu)
-	{
+	for_each_online_cpu(cpu) {
 		cpufreq_update_policy(cpu);
 		pr_info("%s: Setting cpu%d max frequency to %d\n",
 				KBUILD_MODNAME, cpu, info.limited_max_freq);
@@ -110,6 +114,7 @@ static void check_temp(struct work_struct *work)
 	struct tsens_device tsens_dev;
 	uint32_t freq = 0;
 	long temp = 0;
+	u64 now;
 
 	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
 	tsens_get_temp(&tsens_dev, &temp);
@@ -118,6 +123,11 @@ static void check_temp(struct work_struct *work)
 	{
 		if (temp < (temp_threshold - info.safe_diff))
 		{
+			now = ktime_to_us(ktime_get());
+
+			if (now < (info.limit_cpu_time + info.min_interval_us))
+				goto reschedule;
+
 			limit_cpu_freqs(info.cpuinfo_max_freq);
 			info.throttling = false;
 			goto reschedule;
