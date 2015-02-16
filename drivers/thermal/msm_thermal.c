@@ -172,7 +172,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
         memcpy(&msm_thermal_info, &data, sizeof(struct msm_thermal_data));
 
         INIT_DELAYED_WORK(&check_temp_work, check_temp);
-        schedule_delayed_work_on(0, &check_temp_work, 5);
+        schedule_delayed_work_on(0, &check_temp_work, 10 * HZ);
 
 	cpufreq_register_notifier(&msm_thermal_cpufreq_notifier,
 			CPUFREQ_POLICY_NOTIFIER);
