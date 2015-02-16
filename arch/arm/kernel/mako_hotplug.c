@@ -268,9 +268,14 @@ static int lcd_notifier_callback(struct notifier_block *this,
 	unsigned long event, void *data)
 {
 	if (event == LCD_EVENT_ON_START) {
-		if (!stats.booted)
+		if (!stats.booted) {
+			/*
+			 * let's start messing with the cores only after
+			 * the device has booted up
+			 */
+			queue_delayed_work_on(0, wq, &decide_hotplug, 0);
 			stats.booted = true;
-		else
+		} else
 			queue_work_on(0, wq, &resume);
 	} else if (event == LCD_EVENT_OFF_START)
 		queue_work_on(0, wq, &suspend);
@@ -503,8 +508,6 @@ static int mako_hotplug_probe(struct platform_device *pdev)
 	INIT_WORK(&resume, mako_hotplug_resume);
 	INIT_WORK(&suspend, mako_hotplug_suspend);
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
-
-	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 20);
 
 err:
 	return ret;
