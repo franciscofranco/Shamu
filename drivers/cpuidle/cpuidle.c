@@ -244,11 +244,8 @@ static int poll_idle(struct cpuidle_device *dev,
 
 	t1 = ktime_get();
 	local_irq_enable();
-	if (!current_set_polling_and_test()) {
-		while (!need_resched())
-			cpu_relax();
-	}
-	current_clr_polling();
+	while (!need_resched())
+		cpu_relax();
 
 	t2 = ktime_get();
 	diff = ktime_to_us(ktime_sub(t2, t1));

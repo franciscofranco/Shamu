@@ -7,8 +7,6 @@
 #include <linux/mm.h>
 #include <linux/stackprotector.h>
 
-#include "../sched/sched.h"
-
 #include <asm/tlb.h>
 
 #include <trace/events/power.h>
@@ -70,7 +68,6 @@ void __weak arch_cpu_idle(void)
 static void cpu_idle_loop(void)
 {
 	while (1) {
-		__current_set_polling();
 		tick_nohz_idle_enter();
 
 		while (!need_resched()) {
@@ -107,10 +104,6 @@ static void cpu_idle_loop(void)
 			arch_cpu_idle_exit();
 		}
 		tick_nohz_idle_exit();
-		__current_clr_polling();
-		smp_mb__after_clear_bit();
-
-		sched_ttwu_pending();
 		schedule_preempt_disabled();
 		if (cpu_is_offline(smp_processor_id()))
 			arch_cpu_idle_dead();
