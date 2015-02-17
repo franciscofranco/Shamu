@@ -1754,7 +1754,7 @@ static int ap_poll_thread(void *data)
 	int requests;
 	struct ap_device *ap_dev;
 
-	set_user_nice(current, MAX_NICE);
+	set_user_nice(current, 19);
 	while (1) {
 		if (ap_suspend_flag)
 			return 0;

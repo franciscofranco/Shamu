@@ -3,8 +3,6 @@
 
 #include <uapi/linux/sched.h>
 
-#include <linux/sched/prio.h>
-
 
 struct sched_param {
 	int sched_priority;

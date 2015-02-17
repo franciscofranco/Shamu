@@ -2195,7 +2195,7 @@ static int ibmvscsi_work(void *data)
 	struct ibmvscsi_host_data *hostdata = data;
 	int rc;
 
-	set_user_nice(current, MIN_NICE);
+	set_user_nice(current, -20);
 
 	while (1) {
 		rc = wait_event_interruptible(hostdata->work_wait_q,

@@ -733,7 +733,7 @@ lpfc_do_work(void *p)
 	struct lpfc_hba *phba = p;
 	int rc;
 
-	set_user_nice(current, MIN_NICE);
+	set_user_nice(current, -20);
 	current->flags |= PF_NOFREEZE;
 	phba->data_flags = 0;
 
