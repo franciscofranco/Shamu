@@ -76,12 +76,12 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			dbs_info->down_skip = 0;
 
 		/* if we are already at full speed then break out early */
-		if (dbs_info->requested_freq == policy->max)
+		if (policy->cur == policy->max)
 			return;
 
 		if (load < cs_tuners->up_threshold && dbs_info->twostep_counter++ < 2) {
 			dbs_info->twostep_time = now;
-			dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max >> 2);
+			dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max >> 1);
 		} else {
 			if (load >= cs_tuners->up_threshold)
 				dbs_info->requested_freq += get_freq_target(cs_tuners, policy->max);
@@ -89,9 +89,10 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			dbs_info->twostep_counter = 0;
 		}
 
-		if (boosted && policy->cur < cs_tuners->input_boost_freq
-				&& dbs_info->requested_freq < cs_tuners->input_boost_freq)
-			dbs_info->requested_freq = cs_tuners->input_boost_freq;
+		if (boosted)
+			dbs_info->requested_freq
+				= max(cs_tuners->input_boost_freq,
+					dbs_info->requested_freq);
 
 		if (dbs_info->requested_freq > policy->max)
 			dbs_info->requested_freq = policy->max;
