@@ -40,24 +40,16 @@
 
 #define MIN_CPU_UP_US (500 * USEC_PER_MSEC)
 #define NUM_POSSIBLE_CPUS num_possible_cpus()
-#define HIGH_LOAD (95 << 1)
-#define MAX_FREQ_CAP 1497600
+#define HIGH_LOAD (95)
 
 struct cpu_stats {
 	unsigned int counter;
 	struct notifier_block notif;
 	u64 timestamp;
-	uint32_t freq;
-	uint32_t saved_freq;
-	bool screen_cap_lock;
-	bool suspend;
 	bool booted;
 } stats = {
 	.counter = 0,
 	.timestamp = 0,
-	.freq = 0,
-	.screen_cap_lock = false,
-	.suspend = false,
 	.booted = false,
 };
 
@@ -145,18 +137,20 @@ static inline bool cpus_cpufreq_work(void)
 	for (cpu = 2; cpu < 4; cpu++)
 		current_freq += cpufreq_quick_get(cpu);
 
-	return (current_freq >> 1) >= t->cpufreq_unplug_limit;
+	current_freq >>= 1;
+
+	return current_freq >= t->cpufreq_unplug_limit;
 }
 
 static void cpu_revive(unsigned int load)
 {
 	struct hotplug_tunables *t = &tunables;
-	unsigned int counter_hysteria = 5;
+	unsigned int counter_hysteria = 3;
 
 	/*
 	 * we should care about a very high load spike and online the
-	 * cpu in question. If the device is under stress for at least 500ms
-	 * online the cpu, no questions asked. 500ms here equals five samples
+	 * cpus in question. If the device is under stress for at least 300ms
+	 * online all cores, no questions asked. 300ms here equals three samples
 	 */
 	if (load >= HIGH_LOAD && stats.counter >= counter_hysteria)
 		goto online_all;
