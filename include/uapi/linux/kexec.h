@@ -13,6 +13,10 @@
 #define KEXEC_PRESERVE_CONTEXT	0x00000002
 #define KEXEC_ARCH_MASK		0xffff0000
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+#define KEXEC_HARDBOOT     0x00000004
+#endif
+
 /* These values match the ELF architecture values.
  * Unless there is a good reason that should continue to be the case.
  */
