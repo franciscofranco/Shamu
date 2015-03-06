@@ -146,7 +146,7 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 		za->file = zone_page_state(zone, NR_FILE_PAGES)
 					- zone_page_state(zone, NR_SHMEM);
 		if (zone_idx == ZONE_MOVABLE) {
-			if (!use_cma_pages) {
+			if (!use_cma_pages && other_free) {
 				unsigned long free_cma = zone_page_state(zone,
 						NR_FREE_CMA_PAGES);
 				za->free -= free_cma;
@@ -162,7 +162,8 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 				*other_file -= za->file;
 			za->free = za->file = 0;
 		} else if (zone_idx < classzone_idx) {
-			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0)) {
+			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0) &&
+			    other_free) {
 				unsigned long lowmem_reserve =
 					  zone->lowmem_reserve[classzone_idx];
 				if (!use_cma_pages) {
@@ -179,7 +180,7 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					za->free -= lowmem_reserve;
 				}
 			} else {
-				*other_free -= za->free;
+				if (other_free) *other_free -= za->free;
 				za->free = 0;
 			}
 		}
