@@ -532,6 +532,7 @@
 
 		qcom,bus-width = <8>;
 		qcom,cpu-dma-latency-us = <200>;
+		qcom,wakeup-on-idle;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -562,6 +563,7 @@
 
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <200>;
+		qcom,wakeup-on-idle;
 
 		qcom,msm-bus,name = "sdcc2";
 		qcom,msm-bus,num-cases = <8>;
