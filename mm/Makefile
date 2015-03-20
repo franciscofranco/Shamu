@@ -62,3 +62,4 @@ obj-$(CONFIG_CLEANCACHE) += cleancache.o
 obj-$(CONFIG_MEMORY_ISOLATION) += page_isolation.o
 obj-$(CONFIG_PAGE_OWNER) += pageowner.o
 obj-$(CONFIG_ZBUD)	+= zbud.o
+obj-$(CONFIG_PROCESS_RECLAIM)	+= process_reclaim.o
