@@ -570,7 +570,9 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	esoc = mdm->esoc;
 	value = gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS));
-	if (value == 0 && mdm->ready) {
+	if (!mdm->ready)
+		return IRQ_HANDLED;
+	if (value == 0) {
 		dev_err(dev, "unexpected reset external modem\n");
 		esoc_clink_evt_notify(ESOC_UNEXPECTED_RESET, esoc);
 	} else if (value == 1) {
