@@ -29,9 +29,12 @@
 #include <linux/usb/quirks.h>
 #include <linux/usb/hcd.h>
 #include <linux/debugfs.h>
+#include <linux/module.h>
 
 #include "usb.h"
 
+static unsigned int enable_dbg = 0;
+module_param(enable_dbg, uint, S_IRUGO | S_IWUSR);
 
 /* Maximum debug message length */
 #define DBG_MSG_LEN   128UL
@@ -76,6 +79,9 @@ dbg_log_event(struct dbg_data *d, struct usb_interface *iface,
 	unsigned long flags;
 	int num;
 	char tbuf[TIME_BUF_LEN];
+
+	if (!enable_dbg)
+		return;
 
 	/*only log for count 0/1 or negative*/
 	if (usage_cnt > 1)
