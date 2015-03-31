@@ -21,6 +21,12 @@ static bool enable_si_ws = true;
 module_param(enable_si_ws, bool, 0644);
 static bool enable_msm_hsic_ws = true;
 module_param(enable_msm_hsic_ws, bool, 0644);
+static bool enable_wlan_rx_wake_ws = true;
+module_param(enable_wlan_rx_wake_ws, bool, 0644);
+static bool enable_wlan_ctrl_wake_ws = true;
+module_param(enable_wlan_ctrl_wake_ws, bool, 0644);
+static bool enable_wlan_wake_ws = true;
+module_param(enable_wlan_wake_ws, bool, 0644);
 
 #include "power.h"
 
@@ -394,15 +400,20 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
 
-	if (!enable_si_ws && !strcmp(ws->name, "sensor_ind")) {
-		pr_debug("wakeup source sensor_ind activate skipped\n");
+	if (!enable_si_ws && !strcmp(ws->name, "sensor_ind"))
 		return;
-	}
 
-	if (!enable_msm_hsic_ws && !strcmp(ws->name, "msm_hsic_host")) {
-                pr_debug("wakeup source msm_hsic_host activate skipped\n");
+	if (!enable_msm_hsic_ws && !strcmp(ws->name, "msm_hsic_host"))
                 return;
-        }
+
+	if (!enable_wlan_rx_wake_ws && !strcmp(ws->name, "wlan_rx_wake"))
+                return;
+
+	if (!enable_wlan_ctrl_wake_ws && !strcmp(ws->name, "wlan_ctrl_wake"))
+                return;
+
+	if (!enable_wlan_wake_ws && !strcmp(ws->name, "wlan_wake"))
+                return;
 
 	/*
 	 * active wakeup source should bring the system
