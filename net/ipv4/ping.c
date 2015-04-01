@@ -965,11 +965,8 @@ void ping_rcv(struct sk_buff *skb)
 
 	sk = ping_lookup(net, skb, ntohs(icmph->un.echo.id));
 	if (sk != NULL) {
-		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
-
 		pr_debug("rcv on socket %p\n", sk);
-		if (skb2)
-			ping_queue_rcv_skb(sk, skb2);
+		ping_queue_rcv_skb(sk, skb_get(skb));
 		sock_put(sk);
 		return;
 	}
