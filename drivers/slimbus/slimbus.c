@@ -1634,7 +1634,7 @@ static u32 slim_calc_prrate(struct slim_controller *ctrl, struct slim_ch *prop)
 	bool done = false;
 	enum slim_ch_rate ratefam;
 
-	if (prop->prot >= SLIM_ASYNC_SMPLX)
+	if (prop->prot >= SLIM_PUSH)
 		return 0;
 	if (prop->baser == SLIM_RATE_1HZ) {
 		rate = prop->ratem / 4000;
@@ -1753,8 +1753,10 @@ static int slim_nextdefine_ch(struct slim_device *sb, u8 chan)
 	else if (prop->prot == SLIM_AUTO_ISO) {
 		if (exact)
 			prop->prot = SLIM_HARD_ISO;
-		else
-			prop->prot = SLIM_PUSH;
+		else {
+			/* Push-Pull not supported for now */
+			return -EPROTONOSUPPORT;
+		}
 	}
 	slc->rootexp = exp;
 	slc->seglen = prop->sampleszbits/SLIM_CL_PER_SL;
