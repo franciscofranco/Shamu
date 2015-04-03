@@ -31,6 +31,7 @@
 #include <linux/uaccess.h>
 #include <linux/random.h>
 #include <linux/hw_breakpoint.h>
+#include <linux/cpuidle.h>
 #include <linux/leds.h>
 #include <linux/console.h>
 
@@ -171,11 +172,7 @@ EXPORT_SYMBOL_GPL(arm_pm_restart);
 extern void arch_idle(void);
 void (*arm_pm_idle)(void) = arch_idle;
 
-/*
- * Called from the core idle loop.
- */
-
-void arch_cpu_idle(void)
+static void default_idle(void)
 {
 	if (arm_pm_idle)
 		arm_pm_idle();
@@ -210,6 +207,15 @@ void arch_cpu_idle_dead(void)
 	cpu_die();
 }
 #endif
+
+/*
+ * Called from the core idle loop.
+ */
+void arch_cpu_idle(void)
+{
+	if (cpuidle_idle_call())
+		default_idle();
+}
 
 static char reboot_mode = 'h';
 
