@@ -18,13 +18,14 @@
 /* Conservative governor macros */
 #define DEF_FREQUENCY_UP_THRESHOLD		(95)
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(30)
-#define DEF_FREQUENCY_TWOSTEP_THRESHOLD	(60)
+#define DEF_FREQUENCY_TWOSTEP_THRESHOLD		(60)
 #define DEF_FREQUENCY_STEP			(5)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
-#define MICRO_FREQUENCY_MIN_SAMPLE_RATE	(10000)
+#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define BOOST_DURATION_US			(40000)
 #define BOOST_FREQ_VAL				(1497600)
+#define DEFAULT_MIN_LOAD			(5)
 
 static DEFINE_PER_CPU(struct cs_cpu_dbs_info_s, cs_cpu_dbs_info);
 
@@ -89,16 +90,16 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			dbs_info->twostep_counter = 0;
 		}
 
-		if (boosted)
-			dbs_info->requested_freq
-				= max(cs_tuners->input_boost_freq,
-					dbs_info->requested_freq);
-
 		if (dbs_info->requested_freq > policy->max)
 			dbs_info->requested_freq = policy->max;
 
+		if (boosted)
+                        dbs_info->requested_freq
+                                = max(cs_tuners->input_boost_freq,
+                                        dbs_info->requested_freq);
+
 		__cpufreq_driver_target(policy, dbs_info->requested_freq,
-			CPUFREQ_RELATION_H);
+			CPUFREQ_RELATION_C);
 		return;
 	}
 
@@ -127,11 +128,18 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		if (policy->cur == policy->min)
 			return;
 
+		if (load < DEFAULT_MIN_LOAD) {
+			dbs_info->requested_freq = policy->min;
+			goto scale_down;
+		}
+
 		freq_target = get_freq_target(cs_tuners, policy->max);
 		if (dbs_info->requested_freq > freq_target)
 			dbs_info->requested_freq -= freq_target;
 		else
 			dbs_info->requested_freq = policy->min;
+
+scale_down:
 
 		if (boosted)
                         dbs_info->requested_freq
