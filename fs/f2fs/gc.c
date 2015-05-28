@@ -577,10 +577,8 @@ static void move_encrypted_block(struct inode *inode, block_t bidx)
 	fio.page = page;
 	fio.blk_addr = dn.data_blkaddr;
 
-	fio.encrypted_page = pagecache_get_page(META_MAPPING(fio.sbi),
-					fio.blk_addr,
-					FGP_LOCK|FGP_CREAT,
-					GFP_NOFS);
+	fio.encrypted_page = f2fs_grab_cache_page(META_MAPPING(fio.sbi),
+						fio.blk_addr, true);
 	if (!fio.encrypted_page)
 		goto put_out;
 
