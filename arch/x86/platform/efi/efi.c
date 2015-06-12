@@ -80,6 +80,7 @@ static efi_system_table_t efi_systab __initdata;
 
 unsigned long x86_efi_facility;
 
+#if 0
 /*
  * Returns 1 if 'facility' is enabled, 0 otherwise.
  */
@@ -88,6 +89,7 @@ int efi_enabled(int facility)
 	return test_bit(facility, &x86_efi_facility) != 0;
 }
 EXPORT_SYMBOL(efi_enabled);
+#endif
 
 static bool __initdata disable_runtime = false;
 static int __init setup_noefi(char *arg)
