@@ -35,6 +35,13 @@
 					__func__, ##args);\
 	} while (0)
 
+#define KGSL_LOG_ERR_RATELIMITED(dev, lvl, fmt, args...) \
+	do { \
+		if ((lvl) >= 3)  \
+			dev_err_ratelimited(dev, "|%s| " fmt, \
+					__func__, ##args);\
+	} while (0)
+
 #define KGSL_LOG_CRIT(dev, lvl, fmt, args...) \
 	do { \
 		if ((lvl) >= 2) \
@@ -99,6 +106,8 @@ KGSL_LOG_INFO(_dev->dev, _dev->mem_log, fmt, ##args)
 KGSL_LOG_WARN(_dev->dev, _dev->mem_log, fmt, ##args)
 #define KGSL_MEM_ERR(_dev, fmt, args...)  \
 KGSL_LOG_ERR(_dev->dev, _dev->mem_log, fmt, ##args)
+#define KGSL_MEM_ERR_RATELIMITED(_dev, fmt, args...)  \
+KGSL_LOG_ERR_RATELIMITED(_dev->dev, _dev->mem_log, fmt, ##args)
 #define KGSL_MEM_CRIT(_dev, fmt, args...) \
 KGSL_LOG_CRIT(_dev->dev, _dev->mem_log, fmt, ##args)
 
