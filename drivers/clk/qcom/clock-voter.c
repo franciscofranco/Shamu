@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,12 +11,12 @@
  */
 
 #include <linux/err.h>
-#include <linux/mutex.h>
+#include <linux/rtmutex.h>
 #include <linux/clk.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <soc/qcom/clock-voter.h>
 
-static DEFINE_MUTEX(voter_clk_lock);
+static DEFINE_RT_MUTEX(voter_clk_lock);
 
 /* Aggregate the rate of clocks that are currently on. */
 static unsigned long voter_clk_aggregate_rate(const struct clk *parent)
@@ -42,7 +42,7 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 	if (v->is_branch)
 		return 0;
 
-	mutex_lock(&voter_clk_lock);
+	rt_mutex_lock(&voter_clk_lock);
 
 	if (v->enabled) {
 		struct clk *parent = clk->parent;
@@ -68,7 +68,7 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 	}
 	clk->rate = rate;
 unlock:
-	mutex_unlock(&voter_clk_lock);
+	rt_mutex_unlock(&voter_clk_lock);
 
 	return ret;
 }
@@ -80,7 +80,7 @@ static int voter_clk_prepare(struct clk *clk)
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
 
-	mutex_lock(&voter_clk_lock);
+	rt_mutex_lock(&voter_clk_lock);
 	parent = clk->parent;
 
 	if (v->is_branch) {
@@ -100,7 +100,7 @@ static int voter_clk_prepare(struct clk *clk)
 	}
 	v->enabled = true;
 out:
-	mutex_unlock(&voter_clk_lock);
+	rt_mutex_unlock(&voter_clk_lock);
 
 	return ret;
 }
@@ -112,7 +112,7 @@ static void voter_clk_unprepare(struct clk *clk)
 	struct clk_voter *v = to_clk_voter(clk);
 
 
-	mutex_lock(&voter_clk_lock);
+	rt_mutex_lock(&voter_clk_lock);
 	parent = clk->parent;
 
 	/*
@@ -130,7 +130,7 @@ static void voter_clk_unprepare(struct clk *clk)
 		clk_set_rate(parent, new_rate);
 
 out:
-	mutex_unlock(&voter_clk_lock);
+	rt_mutex_unlock(&voter_clk_lock);
 }
 
 static int voter_clk_is_enabled(struct clk *clk)
