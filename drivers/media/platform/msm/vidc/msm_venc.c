@@ -3289,9 +3289,8 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			frame_sz.width = inst->prop.width[CAPTURE_PORT];
 			frame_sz.height = inst->prop.height[CAPTURE_PORT];
 			frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-			rc = call_hfi_op(hdev, session_set_property, (void *)
-					inst->session, HAL_PARAM_FRAME_SIZE,
-					&frame_sz);
+		    rc = call_hfi_op(hdev, session_set_property, inst->session,
+				    HAL_PARAM_FRAME_SIZE, &frame_sz);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed to set OUTPUT framesize\n");
