@@ -39,6 +39,9 @@
 #define BTM_8084_FREQ_MITIG_LIMIT 1958400
 #define BTM_SMB135X_VOLTAGE_MIN 2750000
 
+static bool bcl_hotplug_enable = true;
+module_param(bcl_hotplug_enable, bool, 0644);
+
 static char *battery_str = "battery";
 /*
  * Battery Current Limit Enable or Not
@@ -349,7 +352,8 @@ static void battery_monitor_work(struct work_struct *work)
 	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
 		bcl->btm_mode = BCL_VPH_MONITOR_MODE;
 		update_cpu_freq();
-		bcl_handle_hotplug();
+		if (bcl_hotplug_enable)
+			bcl_handle_hotplug();
 		bcl_get_battery_voltage(&vbatt);
 		pr_debug("vbat is %d\n", vbatt);
 		if (bcl_vph_state == BCL_LOW_THRESHOLD) {
