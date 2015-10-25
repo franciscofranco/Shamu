@@ -460,7 +460,6 @@ struct mmc_host {
 	 * actually disabling the clock from it's source.
 	 */
 	bool			card_clock_off;
-	bool			wakeup_on_idle;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
