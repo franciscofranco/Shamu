@@ -540,12 +540,10 @@ EXPORT_SYMBOL_GPL(cpuidle_register);
 
 #ifdef CONFIG_SMP
 
-#if 0
 static void smp_callback(void *v)
 {
 	/* we already woke the CPU up, nothing more to do */
 }
-#endif
 
 /*
  * This function gets called when a part of the kernel has a new latency
