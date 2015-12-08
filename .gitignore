@@ -94,3 +94,4 @@ x509.genkey
 build.sh
 boot.img
 zip/
+upload.sh
