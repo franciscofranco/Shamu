@@ -223,8 +223,8 @@ int sps_bam_enable(struct sps_bam *dev)
 		if (dev->props.irq > 0)
 			result = request_irq(dev->props.irq,
 				    (irq_handler_t) bam_isr,
-				    IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
-					"sps", dev);
+				    IRQF_TRIGGER_HIGH, "sps", dev);
+
 		if (result) {
 			SPS_ERR("sps:Failed to enable BAM %pa IRQ %d\n",
 				BAM_ID(dev), dev->props.irq);
