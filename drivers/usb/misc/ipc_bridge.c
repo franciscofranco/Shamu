@@ -285,7 +285,7 @@ ipc_bridge_read(struct platform_device *pdev, char *buf, unsigned int count)
 
 	mutex_lock(&dev->read_mutex);
 
-	wait_event(dev->read_wait_q, (!ipc_bridge_rx_list_empty(dev) ||
+	wait_event_interruptible(dev->read_wait_q, (!ipc_bridge_rx_list_empty(dev) ||
 			(dev->udev->state == USB_STATE_NOTATTACHED)));
 
 	if (dev->udev->state == USB_STATE_NOTATTACHED) {
