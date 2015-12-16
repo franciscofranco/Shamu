@@ -60,9 +60,6 @@ static inline int __must_check PTR_RET(const void *ptr)
 		return 0;
 }
 
-/* for backport */
-#define PTR_ERR_OR_ZERO(p) PTR_RET(p)
-
 #endif
 
 #endif /* _LINUX_ERR_H */

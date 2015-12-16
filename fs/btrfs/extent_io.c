@@ -2957,7 +2957,7 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 	pg_offset = i_size & (PAGE_CACHE_SIZE - 1);
 	if (page->index > end_index ||
 	   (page->index == end_index && !pg_offset)) {
-		page->mapping->a_ops->invalidatepage(page, 0, PAGE_CACHE_SIZE);
+		page->mapping->a_ops->invalidatepage(page, 0);
 		unlock_page(page);
 		return 0;
 	}
@@ -3266,7 +3266,7 @@ static int lock_extent_buffer_for_io(struct extent_buffer *eb,
 static void end_extent_buffer_writeback(struct extent_buffer *eb)
 {
 	clear_bit(EXTENT_BUFFER_WRITEBACK, &eb->bflags);
-	smp_mb__after_atomic();
+	smp_mb__after_clear_bit();
 	wake_up_bit(&eb->bflags, EXTENT_BUFFER_WRITEBACK);
 }
 

@@ -571,10 +571,9 @@ static int metapage_releasepage(struct page *page, gfp_t gfp_mask)
 	return ret;
 }
 
-static void metapage_invalidatepage(struct page *page, unsigned int offset,
-				    unsigned int length)
+static void metapage_invalidatepage(struct page *page, unsigned long offset)
 {
-	BUG_ON(offset || length < PAGE_CACHE_SIZE);
+	BUG_ON(offset);
 
 	BUG_ON(PageWriteback(page));
 

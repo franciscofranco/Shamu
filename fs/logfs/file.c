@@ -159,8 +159,7 @@ static int logfs_writepage(struct page *page, struct writeback_control *wbc)
 	return __logfs_writepage(page);
 }
 
-static void logfs_invalidatepage(struct page *page, unsigned int offset,
-				 unsigned int length)
+static void logfs_invalidatepage(struct page *page, unsigned long offset)
 {
 	struct logfs_block *block = logfs_block(page);
 

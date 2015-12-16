@@ -48,7 +48,7 @@ static void read_cache_pages_invalidate_page(struct address_space *mapping,
 		if (!trylock_page(page))
 			BUG();
 		page->mapping = mapping;
-		do_invalidatepage(page, 0, PAGE_CACHE_SIZE);
+		do_invalidatepage(page, 0);
 		page->mapping = NULL;
 		unlock_page(page);
 	}

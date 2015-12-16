@@ -607,7 +607,7 @@ void unlock_page(struct page *page)
 {
 	VM_BUG_ON(!PageLocked(page));
 	clear_bit_unlock(PG_locked, &page->flags);
-	smp_mb__after_atomic();
+	smp_mb__after_clear_bit();
 	wake_up_page(page, PG_locked);
 }
 EXPORT_SYMBOL(unlock_page);
@@ -624,7 +624,7 @@ void end_page_writeback(struct page *page)
 	if (!test_clear_page_writeback(page))
 		BUG();
 
-	smp_mb__after_atomic();
+	smp_mb__after_clear_bit();
 	wake_up_page(page, PG_writeback);
 }
 EXPORT_SYMBOL(end_page_writeback);
@@ -691,8 +691,7 @@ int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
  * Is there a pagecache struct page at the given (mapping, offset) tuple?
  * If yes, increment its refcount and return it; if no, return NULL.
  */
-struct page *find_get_page_flags(struct address_space *mapping, pgoff_t offset,
-				 int fgp_flags)
+struct page *find_get_page(struct address_space *mapping, pgoff_t offset)
 {
 	void **pagep;
 	struct page *page;
@@ -729,8 +728,6 @@ repeat:
 		}
 	}
 out:
-	if (page && (fgp_flags & FGP_ACCESSED))
-		mark_page_accessed(page);
 	rcu_read_unlock();
 
 	return page;

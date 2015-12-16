@@ -45,7 +45,6 @@ struct vfsmount;
 struct cred;
 struct swap_info_struct;
 struct seq_file;
-struct workqueue_struct;
 
 extern void __init inode_init(void);
 extern void __init inode_init_early(void);
@@ -63,7 +62,8 @@ struct buffer_head;
 typedef int (get_block_t)(struct inode *inode, sector_t iblock,
 			struct buffer_head *bh_result, int create);
 typedef void (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
-			ssize_t bytes, void *private);
+			ssize_t bytes, void *private, int ret,
+			bool is_async);
 
 #define MAY_EXEC		0x00000001
 #define MAY_WRITE		0x00000002
@@ -364,7 +364,7 @@ struct address_space_operations {
 
 	/* Unfortunately this kludge is needed for FIBMAP. Don't use it */
 	sector_t (*bmap)(struct address_space *, sector_t);
-	void (*invalidatepage) (struct page *, unsigned int, unsigned int);
+	void (*invalidatepage) (struct page *, unsigned long);
 	int (*releasepage) (struct page *, gfp_t);
 	void (*freepage)(struct page *);
 	ssize_t (*direct_IO)(int, struct kiocb *, const struct iovec *iov,
@@ -632,13 +632,8 @@ enum inode_i_mutex_lock_class
 	I_MUTEX_PARENT,
 	I_MUTEX_CHILD,
 	I_MUTEX_XATTR,
-	I_MUTEX_QUOTA,
-	I_MUTEX_NONDIR2,
-	I_MUTEX_PARENT2,
+	I_MUTEX_QUOTA
 };
-
-void lock_two_nondirectories(struct inode *, struct inode*);
-void unlock_two_nondirectories(struct inode *, struct inode*);
 
 /*
  * NOTE: in a 32bit arch with a preemptable kernel and
@@ -1328,9 +1323,6 @@ struct super_block {
 
 	/* Being remounted read-only */
 	int s_readonly_remount;
-
-	/* AIO completions deferred from interrupt context */
-	struct workqueue_struct *s_dio_done_wq;
 };
 
 /* superblock cache pruning functions */
@@ -1515,17 +1507,6 @@ int fiemap_check_flags(struct fiemap_extent_info *fieinfo, u32 fs_flags);
  * to have different dirent layouts depending on the binary type.
  */
 typedef int (*filldir_t)(void *, const char *, int, loff_t, u64, unsigned);
-struct dir_context {
-	const filldir_t actor;
-	loff_t pos;
-};
-
-static inline bool dir_emit(struct dir_context *ctx,
-			    const char *name, int namelen,
-			    u64 ino, unsigned type)
-{
-	return ctx->actor(ctx, name, namelen, ctx->pos, ino, type) == 0;
-}
 struct block_device_operations;
 
 /* These macros are for out of kernel modules to test that
@@ -1542,7 +1523,6 @@ struct file_operations {
 	ssize_t (*aio_read) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
 	ssize_t (*aio_write) (struct kiocb *, const struct iovec *, unsigned long, loff_t);
 	int (*readdir) (struct file *, void *, filldir_t);
-	int (*iterate) (struct file *, struct dir_context *);
 	unsigned int (*poll) (struct file *, struct poll_table_struct *);
 	long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
 	long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
@@ -2492,9 +2472,6 @@ static inline ssize_t blockdev_direct_IO(int rw, struct kiocb *iocb,
 void inode_dio_wait(struct inode *inode);
 void inode_dio_done(struct inode *inode);
 
-extern void inode_set_flags(struct inode *inode, unsigned int flags,
-			    unsigned int mask);
-
 extern const struct file_operations generic_ro_fops;
 
 #define special_file(m) (S_ISCHR(m)||S_ISBLK(m)||S_ISFIFO(m)||S_ISSOCK(m))
@@ -2513,13 +2490,11 @@ extern void generic_fillattr(struct inode *, struct kstat *);
 extern int vfs_getattr(struct path *, struct kstat *);
 void __inode_add_bytes(struct inode *inode, loff_t bytes);
 void inode_add_bytes(struct inode *inode, loff_t bytes);
-void __inode_sub_bytes(struct inode *inode, loff_t bytes);
 void inode_sub_bytes(struct inode *inode, loff_t bytes);
 loff_t inode_get_bytes(struct inode *inode);
 void inode_set_bytes(struct inode *inode, loff_t bytes);
 
 extern int vfs_readdir(struct file *, filldir_t, void *);
-extern int iterate_dir(struct file *, struct dir_context *);
 
 extern int vfs_stat(const char __user *, struct kstat *);
 extern int vfs_lstat(const char __user *, struct kstat *);
@@ -2712,13 +2687,6 @@ static inline void inode_has_no_xattr(struct inode *inode)
 {
 	if (!is_sxid(inode->i_mode) && (inode->i_sb->s_flags & MS_NOSEC))
 		inode->i_flags |= S_NOSEC;
-}
-
-static inline bool dir_relax(struct inode *inode)
-{
-	mutex_unlock(&inode->i_mutex);
-	mutex_lock(&inode->i_mutex);
-	return !IS_DEADDIR(inode);
 }
 
 #endif /* _LINUX_FS_H */

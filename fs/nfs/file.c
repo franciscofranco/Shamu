@@ -451,13 +451,11 @@ static int nfs_write_end(struct file *file, struct address_space *mapping,
  * - Called if either PG_private or PG_fscache is set on the page
  * - Caller holds page lock
  */
-static void nfs_invalidate_page(struct page *page, unsigned int offset,
-				unsigned int length)
+static void nfs_invalidate_page(struct page *page, unsigned long offset)
 {
-	dfprintk(PAGECACHE, "NFS: invalidate_page(%p, %u, %u)\n",
-		 page, offset, length);
+	dfprintk(PAGECACHE, "NFS: invalidate_page(%p, %lu)\n", page, offset);
 
-	if (offset != 0 || length < PAGE_CACHE_SIZE)
+	if (offset != 0)
 		return;
 	/* Cancel any unstarted writes on this page */
 	nfs_wb_page_cancel(page_file_mapping(page)->host, page);

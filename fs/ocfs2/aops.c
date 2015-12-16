@@ -565,7 +565,9 @@ bail:
 static void ocfs2_dio_end_io(struct kiocb *iocb,
 			     loff_t offset,
 			     ssize_t bytes,
-			     void *private)
+			     void *private,
+			     int ret,
+			     bool is_async)
 {
 	struct inode *inode = file_inode(iocb->ki_filp);
 	int level;
@@ -590,6 +592,10 @@ static void ocfs2_dio_end_io(struct kiocb *iocb,
 
 	level = ocfs2_iocb_rw_locked_level(iocb);
 	ocfs2_rw_unlock(inode, level);
+
+	inode_dio_done(inode);
+	if (is_async)
+		aio_complete(iocb, ret, 0);
 }
 
 /*
@@ -597,8 +603,7 @@ static void ocfs2_dio_end_io(struct kiocb *iocb,
  * from ext3.  PageChecked() bits have been removed as OCFS2 does not
  * do journalled data.
  */
-static void ocfs2_invalidatepage(struct page *page, unsigned int offset,
-				 unsigned int length)
+static void ocfs2_invalidatepage(struct page *page, unsigned long offset)
 {
 	journal_t *journal = OCFS2_SB(page->mapping->host->i_sb)->journal->j_journal;
 

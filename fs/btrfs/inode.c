@@ -7083,7 +7083,7 @@ static void btrfs_end_dio_bio(struct bio *bio, int err)
 		 * before atomic variable goto zero, we must make sure
 		 * dip->errors is perceived to be set.
 		 */
-		smp_mb__before_atomic();
+		smp_mb__before_atomic_dec();
 	}
 
 	/* if there are more bios still pending for this dio, just exit */
@@ -7260,7 +7260,7 @@ out_err:
 	 * before atomic variable goto zero, we must
 	 * make sure dip->errors is perceived to be set.
 	 */
-	smp_mb__before_atomic();
+	smp_mb__before_atomic_dec();
 	if (atomic_dec_and_test(&dip->pending_bios))
 		bio_io_error(dip->orig_bio);
 
@@ -7401,7 +7401,7 @@ static ssize_t btrfs_direct_IO(int rw, struct kiocb *iocb,
 		return 0;
 
 	atomic_inc(&inode->i_dio_count);
-	smp_mb__after_atomic();
+	smp_mb__after_atomic_inc();
 
 	if (rw & WRITE) {
 		count = iov_length(iov, nr_segs);
@@ -7523,8 +7523,7 @@ static int btrfs_releasepage(struct page *page, gfp_t gfp_flags)
 	return __btrfs_releasepage(page, gfp_flags & GFP_NOFS);
 }
 
-static void btrfs_invalidatepage(struct page *page, unsigned int offset,
-				 unsigned int length)
+static void btrfs_invalidatepage(struct page *page, unsigned long offset)
 {
 	struct inode *inode = page->mapping->host;
 	struct extent_io_tree *tree;

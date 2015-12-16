@@ -25,7 +25,9 @@
 
 #include <linux/compiler.h>
 #include <linux/irqflags.h>
-#include <asm/barrier.h>
+
+#define smp_mb__before_clear_bit()	smp_mb()
+#define smp_mb__after_clear_bit()	smp_mb()
 
 /*
  * These functions are the basis of our bit ops.

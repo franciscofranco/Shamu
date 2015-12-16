@@ -2249,7 +2249,7 @@ int test_clear_page_writeback(struct page *page)
 	return ret;
 }
 
-int __test_set_page_writeback(struct page *page, bool keep_write)
+int test_set_page_writeback(struct page *page)
 {
 	struct address_space *mapping = page_mapping(page);
 	int ret;
@@ -2271,10 +2271,9 @@ int __test_set_page_writeback(struct page *page, bool keep_write)
 			radix_tree_tag_clear(&mapping->page_tree,
 						page_index(page),
 						PAGECACHE_TAG_DIRTY);
-		if (!keep_write)
-			radix_tree_tag_clear(&mapping->page_tree,
-						page_index(page),
-						PAGECACHE_TAG_TOWRITE);
+		radix_tree_tag_clear(&mapping->page_tree,
+				     page_index(page),
+				     PAGECACHE_TAG_TOWRITE);
 		spin_unlock_irqrestore(&mapping->tree_lock, flags);
 	} else {
 		ret = TestSetPageWriteback(page);
@@ -2284,7 +2283,7 @@ int __test_set_page_writeback(struct page *page, bool keep_write)
 	return ret;
 
 }
-EXPORT_SYMBOL(__test_set_page_writeback);
+EXPORT_SYMBOL(test_set_page_writeback);
 
 /*
  * Return true if any of the pages in the mapping are marked with the

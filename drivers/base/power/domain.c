@@ -106,7 +106,7 @@ static bool genpd_sd_counter_dec(struct generic_pm_domain *genpd)
 static void genpd_sd_counter_inc(struct generic_pm_domain *genpd)
 {
 	atomic_inc(&genpd->sd_count);
-	smp_mb__after_atomic();
+	smp_mb__after_atomic_inc();
 }
 
 static void genpd_acquire_lock(struct generic_pm_domain *genpd)

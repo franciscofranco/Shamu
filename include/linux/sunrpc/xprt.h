@@ -368,9 +368,9 @@ static inline int xprt_test_and_clear_connected(struct rpc_xprt *xprt)
 
 static inline void xprt_clear_connecting(struct rpc_xprt *xprt)
 {
-	smp_mb__before_atomic();
+	smp_mb__before_clear_bit();
 	clear_bit(XPRT_CONNECTING, &xprt->state);
-	smp_mb__after_atomic();
+	smp_mb__after_clear_bit();
 }
 
 static inline int xprt_connecting(struct rpc_xprt *xprt)
@@ -400,9 +400,9 @@ static inline void xprt_clear_bound(struct rpc_xprt *xprt)
 
 static inline void xprt_clear_binding(struct rpc_xprt *xprt)
 {
-	smp_mb__before_atomic();
+	smp_mb__before_clear_bit();
 	clear_bit(XPRT_BINDING, &xprt->state);
-	smp_mb__after_atomic();
+	smp_mb__after_clear_bit();
 }
 
 static inline int xprt_test_and_set_binding(struct rpc_xprt *xprt)

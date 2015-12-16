@@ -110,7 +110,7 @@ static int gfs2_writepage_common(struct page *page,
 	/* Is the page fully outside i_size? (truncate in progress) */
 	offset = i_size & (PAGE_CACHE_SIZE-1);
 	if (page->index > end_index || (page->index == end_index && !offset)) {
-		page->mapping->a_ops->invalidatepage(page, 0, PAGE_CACHE_SIZE);
+		page->mapping->a_ops->invalidatepage(page, 0);
 		goto out;
 	}
 	return 1;
@@ -299,8 +299,7 @@ static int gfs2_write_jdata_pagevec(struct address_space *mapping,
 
 		/* Is the page fully outside i_size? (truncate in progress) */
 		if (page->index > end_index || (page->index == end_index && !offset)) {
-			page->mapping->a_ops->invalidatepage(page, 0,
-							     PAGE_CACHE_SIZE);
+			page->mapping->a_ops->invalidatepage(page, 0);
 			unlock_page(page);
 			continue;
 		}
@@ -944,8 +943,7 @@ static void gfs2_discard(struct gfs2_sbd *sdp, struct buffer_head *bh)
 	unlock_buffer(bh);
 }
 
-static void gfs2_invalidatepage(struct page *page, unsigned int offset,
-				unsigned int length)
+static void gfs2_invalidatepage(struct page *page, unsigned long offset)
 {
 	struct gfs2_sbd *sdp = GFS2_SB(page->mapping->host);
 	struct buffer_head *bh, *head;

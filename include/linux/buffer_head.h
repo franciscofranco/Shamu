@@ -36,7 +36,6 @@ enum bh_state_bits {
 	BH_Quiet,	/* Buffer Error Prinks to be quiet */
 	BH_Meta,	/* Buffer contains metadata */
 	BH_Prio,	/* Buffer should be submitted with REQ_PRIO */
-	BH_Defer_Completion, /* Defer AIO completion to workqueue */
 
 	BH_PrivateStart,/* not a state bit, but the first bit available
 			 * for private allocation by other entities
@@ -129,7 +128,6 @@ BUFFER_FNS(Write_EIO, write_io_error)
 BUFFER_FNS(Unwritten, unwritten)
 BUFFER_FNS(Meta, meta)
 BUFFER_FNS(Prio, prio)
-BUFFER_FNS(Defer_Completion, defer_completion)
 
 #define bh_offset(bh)		((unsigned long)(bh)->b_data & ~PAGE_MASK)
 
@@ -203,8 +201,7 @@ extern int buffer_heads_over_limit;
  * Generic address_space_operations implementations for buffer_head-backed
  * address_spaces.
  */
-void block_invalidatepage(struct page *page, unsigned int offset,
-			  unsigned int length);
+void block_invalidatepage(struct page *page, unsigned long offset);
 int block_write_full_page(struct page *page, get_block_t *get_block,
 				struct writeback_control *wbc);
 int block_write_full_page_endio(struct page *page, get_block_t *get_block,
@@ -278,7 +275,7 @@ static inline void get_bh(struct buffer_head *bh)
 
 static inline void put_bh(struct buffer_head *bh)
 {
-        smp_mb__before_atomic();
+        smp_mb__before_atomic_dec();
         atomic_dec(&bh->b_count);
 }
 
@@ -298,18 +295,6 @@ static inline struct buffer_head *
 sb_bread(struct super_block *sb, sector_t block)
 {
 	return __bread(sb->s_bdev, block, sb->s_blocksize);
-}
-
-static inline struct buffer_head *
-sb_bread_unmovable(struct super_block *sb, sector_t block)
-{
-	return sb_bread(sb, block);
-}
-
-static inline struct buffer_head *getblk_unmovable(struct block_device *bdev,
-					sector_t block, unsigned size)
-{
-	return __getblk(bdev, block, size);
 }
 
 static inline void

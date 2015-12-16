@@ -1,4 +1,3 @@
-#if !defined(__x86_64__) && !defined(__i386__)
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -74,4 +73,3 @@ static int __init msm_pm_boot_init(void)
 	return ret;
 }
 postcore_initcall(msm_pm_boot_init);
-#endif

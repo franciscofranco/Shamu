@@ -1013,8 +1013,7 @@ static int btree_releasepage(struct page *page, gfp_t gfp_flags)
 	return try_release_extent_buffer(page);
 }
 
-static void btree_invalidatepage(struct page *page, unsigned int offset,
-				 unsigned int length)
+static void btree_invalidatepage(struct page *page, unsigned long offset)
 {
 	struct extent_io_tree *tree;
 	tree = &BTRFS_I(page->mapping->host)->io_tree;

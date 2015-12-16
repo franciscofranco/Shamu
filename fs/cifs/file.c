@@ -3576,12 +3576,11 @@ static int cifs_release_page(struct page *page, gfp_t gfp)
 	return cifs_fscache_release_page(page, gfp);
 }
 
-static void cifs_invalidate_page(struct page *page, unsigned int offset,
-				 unsigned int length)
+static void cifs_invalidate_page(struct page *page, unsigned long offset)
 {
 	struct cifsInodeInfo *cifsi = CIFS_I(page->mapping->host);
 
-	if (offset == 0 && length == PAGE_CACHE_SIZE)
+	if (offset == 0)
 		cifs_fscache_invalidate_page(page, &cifsi->vfs_inode);
 }
 

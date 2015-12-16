@@ -73,6 +73,32 @@ static int ext4_sync_parent(struct inode *inode)
 	return ret;
 }
 
+/**
+ * __sync_file - generic_file_fsync without the locking and filemap_write
+ * @inode:	inode to sync
+ * @datasync:	only sync essential metadata if true
+ *
+ * This is just generic_file_fsync without the locking.  This is needed for
+ * nojournal mode to make sure this inodes data/metadata makes it to disk
+ * properly.  The i_mutex should be held already.
+ */
+static int __sync_inode(struct inode *inode, int datasync)
+{
+	int err;
+	int ret;
+
+	ret = sync_mapping_buffers(inode->i_mapping);
+	if (!(inode->i_state & I_DIRTY))
+		return ret;
+	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
+		return ret;
+
+	err = sync_inode_metadata(inode, 1);
+	if (ret == 0)
+		ret = err;
+	return ret;
+}
+
 /*
  * akpm: A new design for ext4_sync_file().
  *
@@ -90,7 +116,7 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	struct inode *inode = file->f_mapping->host;
 	struct ext4_inode_info *ei = EXT4_I(inode);
 	journal_t *journal = EXT4_SB(inode->i_sb)->s_journal;
-	int ret = 0, err;
+	int ret, err;
 	tid_t commit_tid;
 	bool needs_barrier = false;
 
@@ -98,24 +124,25 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 
 	trace_ext4_sync_file_enter(file, datasync);
 
-	if (inode->i_sb->s_flags & MS_RDONLY) {
-		/* Make sure that we read updated s_mount_flags value */
-		smp_rmb();
-		if (EXT4_SB(inode->i_sb)->s_mount_flags & EXT4_MF_FS_ABORTED)
-			ret = -EROFS;
+	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
+	if (ret)
+		return ret;
+	mutex_lock(&inode->i_mutex);
+
+	if (inode->i_sb->s_flags & MS_RDONLY)
 		goto out;
-	}
+
+	ret = ext4_flush_unwritten_io(inode);
+	if (ret < 0)
+		goto out;
 
 	if (!journal) {
-		ret = generic_file_fsync(file, start, end, datasync);
+		ret = __sync_inode(inode, datasync);
 		if (!ret && !hlist_empty(&inode->i_dentry))
 			ret = ext4_sync_parent(inode);
 		goto out;
 	}
 
-	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
-	if (ret)
-		return ret;
 	/*
 	 * data=writeback,ordered:
 	 *  The caller's filemap_fdatawrite()/wait will sync the data.
@@ -145,7 +172,8 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 		if (!ret)
 			ret = err;
 	}
-out:
+ out:
+	mutex_unlock(&inode->i_mutex);
 	trace_ext4_sync_file_exit(inode, ret);
 	return ret;
 }
