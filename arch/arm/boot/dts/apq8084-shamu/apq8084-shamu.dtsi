@@ -414,6 +414,11 @@
 	qcom,panel-roi-alignment = <8 8 1 1 8 1>;
 	qcom,partial-update-roi-merge;
 	qcom,dcs-cmd-by-left;
+	qcom,mdss-dsi-hbm-on-command = [
+		/* HBM setting in 2 MSB bits of reg 53 */
+		15 01 00 00 00 00 02 53 e0];
+	qcom,mdss-dsi-hbm-off-command = [
+		15 01 00 00 00 00 02 53 20];
 };
 
 &mot_smd_596_QHD_1_cmd_v0 {
@@ -422,6 +427,11 @@
 	qcom,panel-roi-alignment = <8 8 1 1 8 1>;
 	qcom,partial-update-roi-merge;
 	qcom,dcs-cmd-by-left;
+	qcom,mdss-dsi-hbm-on-command = [
+                /* HBM setting in 2 MSB bits of reg 53 */
+                15 01 00 00 00 00 02 53 e0];
+        qcom,mdss-dsi-hbm-off-command = [
+                15 01 00 00 00 00 02 53 20];
 };
 
 &i2c_1 {
