@@ -22,6 +22,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/cdc.h>
 #include <linux/debugfs.h>
+#include <linux/kthread.h>
 
 #include <mach/ipc_bridge.h>
 
@@ -285,8 +286,14 @@ ipc_bridge_read(struct platform_device *pdev, char *buf, unsigned int count)
 
 	mutex_lock(&dev->read_mutex);
 
-	wait_event_interruptible(dev->read_wait_q, (!ipc_bridge_rx_list_empty(dev) ||
-			(dev->udev->state == USB_STATE_NOTATTACHED)));
+	ret = wait_event_interruptible(dev->read_wait_q, (!ipc_bridge_rx_list_empty(dev) ||
+			(dev->udev->state == USB_STATE_NOTATTACHED)) ||
+			kthread_should_stop());
+
+        if (ret) {
+		pr_debug("%s: interrupted\n", __func__);
+		goto done;
+	}
 
 	if (dev->udev->state == USB_STATE_NOTATTACHED) {
 		ret = -ENODEV;
