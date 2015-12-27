@@ -894,7 +894,6 @@ config USB_ANDROID_RNDIS_DWORD_ALIGNED
 config USB_ANDROID_USBNET
 	boolean "Android gadget usbnet function"
 	depends on USB_ANDROID
-	default y
 	help
 	  Provides usbnet function for android gadget driver.
 
