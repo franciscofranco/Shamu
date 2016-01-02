@@ -349,7 +349,7 @@ static void battery_monitor_work(struct work_struct *work)
 	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
 		bcl->btm_mode = BCL_VPH_MONITOR_MODE;
 		update_cpu_freq();
-		bcl_handle_hotplug();
+		//bcl_handle_hotplug();
 		bcl_get_battery_voltage(&vbatt);
 		pr_debug("vbat is %d\n", vbatt);
 		if (bcl_vph_state == BCL_LOW_THRESHOLD) {
