@@ -6379,6 +6379,7 @@ static const struct trace_print_flags pageflag_names[] = {
 
 static void dump_page_flags(unsigned long flags)
 {
+#if 0
 	const char *delim = "";
 	unsigned long mask;
 	int i;
@@ -6406,14 +6407,17 @@ static void dump_page_flags(unsigned long flags)
 		printk("%s%#lx", delim, flags);
 
 	printk(")\n");
+#endif
 }
 
 void dump_page(struct page *page)
 {
+#if 0
 	printk(KERN_ALERT
 	       "page:%p count:%d mapcount:%d mapping:%p index:%#lx\n",
 		page, atomic_read(&page->_count), page_mapcount(page),
 		page->mapping, page->index);
 	dump_page_flags(page->flags);
 	mem_cgroup_print_bad_page(page);
+#endif
 }
