@@ -742,7 +742,6 @@ const char * const vmstat_text[] = {
 #endif
 	"nr_anon_transparent_hugepages",
 	"nr_free_cma",
-	"nr_swapcache",
 	"nr_ion",
 	"nr_ion_pool",
 	"nr_ion_cma",
