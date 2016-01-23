@@ -346,4 +346,6 @@ struct drv260x_platform_data {
 	struct regulator *static_vdd;
 	unsigned char *calibration_data;
 };
+
+void vibrate(int strength);
 #endif				/* __KERNEL__ */

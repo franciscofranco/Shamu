@@ -692,6 +692,12 @@ static struct timed_output_dev to_dev = {
 	.get_time = vibrator_get_time,
 	.enable = vibrator_enable,
 };
+
+void vibrate(int strength)
+{
+        vibrator_enable(&to_dev, strength);
+}
+
 static void drv260x_update_init_sequence(unsigned char *seq, int size,
 					unsigned char reg, unsigned char data)
 {
