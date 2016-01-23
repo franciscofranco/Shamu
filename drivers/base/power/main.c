@@ -551,7 +551,7 @@ static void dpm_resume_noirq(pm_message_t state)
 	 * delayed by non-async resuming devices.
 	 */
 	list_for_each_entry(dev, &dpm_noirq_list, power.entry) {
-		reinit_completion(&dev->power.completion);
+		INIT_COMPLETION(dev->power.completion);
 		if (is_async(dev)) {
 			get_device(dev);
 			async_schedule(async_resume_noirq, dev);
@@ -670,7 +670,7 @@ static void dpm_resume_early(pm_message_t state)
 	 * delayed by non-async resuming devices.
 	 */
 	list_for_each_entry(dev, &dpm_late_early_list, power.entry) {
-		reinit_completion(&dev->power.completion);
+		INIT_COMPLETION(dev->power.completion);
 		if (is_async(dev)) {
 			get_device(dev);
 			async_schedule(async_resume_early, dev);
@@ -1053,7 +1053,7 @@ static void async_suspend_noirq(void *data, async_cookie_t cookie)
 
 static int device_suspend_noirq(struct device *dev)
 {
-	reinit_completion(&dev->power.completion);
+	INIT_COMPLETION(dev->power.completion);
 
 	if (pm_async_enabled && dev->power.async_suspend) {
 		get_device(dev);
@@ -1199,7 +1199,7 @@ static void async_suspend_late(void *data, async_cookie_t cookie)
 
 static int device_suspend_late(struct device *dev)
 {
-	reinit_completion(&dev->power.completion);
+	INIT_COMPLETION(dev->power.completion);
 
 	if (pm_async_enabled && dev->power.async_suspend) {
 		get_device(dev);
