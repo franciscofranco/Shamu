@@ -31,6 +31,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
+#include <linux/display_state.h>
 #include <asm/cputime.h>
 
 #define CREATE_TRACE_POINTS
@@ -94,7 +95,8 @@ static unsigned long min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
  */
 #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
 static unsigned long timer_rate = DEFAULT_TIMER_RATE;
-
+#define SCREEN_OFF_TIMER_RATE ((unsigned long)(50 * USEC_PER_MSEC))
+static unsigned long prev_timer_rate = SCREEN_OFF_TIMER_RATE;
 /*
  * Wait this long before raising speed above hispeed, by default a single
  * timer interval.
@@ -380,6 +382,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned long flags;
 	unsigned int this_hispeed_freq;
 	bool boosted;
+	bool display_on = is_display_on();
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
@@ -392,6 +395,13 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cputime_speedadj = pcpu->cputime_speedadj;
 	pcpu->last_evaluated_jiffy = get_jiffies_64();
 	spin_unlock_irqrestore(&pcpu->load_lock, flags);
+
+	if (display_on && timer_rate != prev_timer_rate)
+		timer_rate = prev_timer_rate;
+	else if (!display_on && timer_rate != SCREEN_OFF_TIMER_RATE) {
+		prev_timer_rate = timer_rate;
+		timer_rate = max(timer_rate, SCREEN_OFF_TIMER_RATE);
+	}
 
 	if (WARN_ON_ONCE(!delta_time))
 		goto rearm;
@@ -958,6 +968,7 @@ static ssize_t store_timer_rate(struct kobject *kobj,
 				val_round);
 
 	timer_rate = val_round;
+	prev_timer_rate = val_round;
 	return count;
 }
 
