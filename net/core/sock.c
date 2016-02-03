@@ -1700,23 +1700,24 @@ static long sock_wait_for_wmem(struct sock *sk, long timeo)
 
 struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
 				     unsigned long data_len, int noblock,
-				     int *errcode, int max_page_order)
+				     int *errcode)
 {
-	struct sk_buff *skb = NULL;
-	unsigned long chunk;
+	struct sk_buff *skb;
 	gfp_t gfp_mask;
 	long timeo;
 	int err;
 	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
-	struct page *page;
-	int i;
 
 	err = -EMSGSIZE;
 	if (npages > MAX_SKB_FRAGS)
 		goto failure;
 
+	gfp_mask = sk->sk_allocation;
+	if (gfp_mask & __GFP_WAIT)
+		gfp_mask |= __GFP_REPEAT;
+
 	timeo = sock_sndtimeo(sk, noblock);
-	while (!skb) {
+	while (1) {
 		err = sock_error(sk);
 		if (err != 0)
 			goto failure;
@@ -1725,57 +1726,50 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
 		if (sk->sk_shutdown & SEND_SHUTDOWN)
 			goto failure;
 
-		if (atomic_read(&sk->sk_wmem_alloc) >= sk->sk_sndbuf) {
-			set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
-			set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
-			err = -EAGAIN;
-			if (!timeo)
-				goto failure;
-			if (signal_pending(current))
-				goto interrupted;
-			timeo = sock_wait_for_wmem(sk, timeo);
-			continue;
-		}
+		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
+			skb = alloc_skb(header_len, gfp_mask);
+			if (skb) {
+				int i;
 
-		err = -ENOBUFS;
-		gfp_mask = sk->sk_allocation;
-		if (gfp_mask & __GFP_WAIT)
-			gfp_mask |= __GFP_REPEAT;
+				/* No pages, we're done... */
+				if (!data_len)
+					break;
 
-		skb = alloc_skb(header_len, gfp_mask);
-		if (!skb)
-			goto failure;
+				skb->truesize += data_len;
+				skb_shinfo(skb)->nr_frags = npages;
+				for (i = 0; i < npages; i++) {
+					struct page *page;
 
-		skb->truesize += data_len;
+					page = alloc_pages(sk->sk_allocation, 0);
+					if (!page) {
+						err = -ENOBUFS;
+						skb_shinfo(skb)->nr_frags = i;
+						kfree_skb(skb);
+						goto failure;
+					}
 
-		for (i = 0; npages > 0; i++) {
-			int order = max_page_order;
-
-			while (order) {
-				if (npages >= 1 << order) {
-					page = alloc_pages(sk->sk_allocation |
-							   __GFP_COMP |
-							   __GFP_NOWARN |
-							   __GFP_NORETRY,
-							   order);
-					if (page)
-						goto fill_page;
-					/* Do not retry other high order allocations */
-					order = 1;
-					max_page_order = 0;
+					__skb_fill_page_desc(skb, i,
+							page, 0,
+							(data_len >= PAGE_SIZE ?
+							 PAGE_SIZE :
+							 data_len));
+					data_len -= PAGE_SIZE;
 				}
-				order--;
+
+				/* Full success... */
+				break;
 			}
-			page = alloc_page(sk->sk_allocation);
-			if (!page)
-				goto failure;
-fill_page:
-			chunk = min_t(unsigned long, data_len,
-				      PAGE_SIZE << order);
-			skb_fill_page_desc(skb, i, page, 0, chunk);
-			data_len -= chunk;
-			npages -= 1 << order;
+			err = -ENOBUFS;
+			goto failure;
 		}
+		set_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
+		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+		err = -EAGAIN;
+		if (!timeo)
+			goto failure;
+		if (signal_pending(current))
+			goto interrupted;
+		timeo = sock_wait_for_wmem(sk, timeo);
 	}
 
 	skb_set_owner_w(skb, sk);
@@ -1784,7 +1778,6 @@ fill_page:
 interrupted:
 	err = sock_intr_errno(timeo);
 failure:
-	kfree_skb(skb);
 	*errcode = err;
 	return NULL;
 }
@@ -1793,58 +1786,42 @@ EXPORT_SYMBOL(sock_alloc_send_pskb);
 struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
 				    int noblock, int *errcode)
 {
-	return sock_alloc_send_pskb(sk, size, 0, noblock, errcode, 0);
+	return sock_alloc_send_pskb(sk, size, 0, noblock, errcode);
 }
 EXPORT_SYMBOL(sock_alloc_send_skb);
 
 /* On 32bit arches, an skb frag is limited to 2^15 */
 #define SKB_FRAG_PAGE_ORDER	get_order(32768)
 
-/**
- * skb_page_frag_refill - check that a page_frag contains enough room
- * @sz: minimum size of the fragment we want to get
- * @pfrag: pointer to page_frag
- * @prio: priority for memory allocation
- *
- * Note: While this allocator tries to use high order pages, there is
- * no guarantee that allocations succeed. Therefore, @sz MUST be
- * less or equal than PAGE_SIZE.
- */
-bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t gfp)
+bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
 {
+	int order;
+
 	if (pfrag->page) {
 		if (atomic_read(&pfrag->page->_count) == 1) {
 			pfrag->offset = 0;
 			return true;
 		}
-		if (pfrag->offset + sz <= pfrag->size)
+		if (pfrag->offset < pfrag->size)
 			return true;
 		put_page(pfrag->page);
 	}
 
-	pfrag->offset = 0;
-	if (SKB_FRAG_PAGE_ORDER) {
-		pfrag->page = alloc_pages(gfp | __GFP_COMP |
-					  __GFP_NOWARN | __GFP_NORETRY,
-					  SKB_FRAG_PAGE_ORDER);
+	/* We restrict high order allocations to users that can afford to wait */
+	order = (sk->sk_allocation & __GFP_WAIT) ? SKB_FRAG_PAGE_ORDER : 0;
+
+	do {
+		gfp_t gfp = sk->sk_allocation;
+
+		if (order)
+			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+		pfrag->page = alloc_pages(gfp, order);
 		if (likely(pfrag->page)) {
-			pfrag->size = PAGE_SIZE << SKB_FRAG_PAGE_ORDER;
+			pfrag->offset = 0;
+			pfrag->size = PAGE_SIZE << order;
 			return true;
 		}
-	}
-	pfrag->page = alloc_page(gfp);
-	if (likely(pfrag->page)) {
-		pfrag->size = PAGE_SIZE;
-		return true;
-	}
-	return false;
-}
-EXPORT_SYMBOL(skb_page_frag_refill);
-
-bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
-{
-	if (likely(skb_page_frag_refill(32U, pfrag, sk->sk_allocation)))
-		return true;
+	} while (--order >= 0);
 
 	sk_enter_memory_pressure(sk);
 	sk_stream_moderate_sndbuf(sk);
