@@ -400,7 +400,8 @@ pipe_read(struct kiocb *iocb, const struct iovec *_iov,
 			const struct pipe_buf_operations *ops = buf->ops;
 			void *addr;
 			size_t chars = buf->len, remaining;
-			int error, atomic, offset;
+			int error, atomic;
+			int offset;
 
 			if (chars > total_len)
 				chars = total_len;
