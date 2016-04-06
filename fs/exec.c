@@ -55,7 +55,6 @@
 #include <linux/pipe_fs_i.h>
 #include <linux/oom.h>
 #include <linux/compat.h>
-#include <linux/resource.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -718,24 +717,23 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	/* mprotect_fixup is overkill to remove the temporary stack flags */
 	vma->vm_flags &= ~VM_STACK_INCOMPLETE_SETUP;
 
-#ifdef _STK_LIM
-	/* save all the virtual space we're allowed */
-	stack_expand = ((_STK_LIM) & (PAGE_MASK));
-#else
 	stack_expand = 131072UL; /* randomly 32*4k (or 2*64k) pages */
-#endif
 	stack_size = vma->vm_end - vma->vm_start;
 	/*
 	 * Align this down to a page boundary as expand_stack
 	 * will align it up.
 	 */
 	rlim_stack = rlimit(RLIMIT_STACK) & PAGE_MASK;
-	if (stack_size + stack_expand > rlim_stack)
-		stack_expand = rlim_stack - stack_size;
 #ifdef CONFIG_STACK_GROWSUP
-	stack_base = vma->vm_end + stack_expand;
+	if (stack_size + stack_expand > rlim_stack)
+		stack_base = vma->vm_start + rlim_stack;
+	else
+		stack_base = vma->vm_end + stack_expand;
 #else
-	stack_base = vma->vm_start - stack_expand;
+	if (stack_size + stack_expand > rlim_stack)
+		stack_base = vma->vm_end - rlim_stack;
+	else
+		stack_base = vma->vm_start - stack_expand;
 #endif
 	current->mm->start_stack = bprm->p;
 	ret = expand_stack(vma, stack_base);
@@ -960,15 +958,6 @@ static int de_thread(struct task_struct *tsk)
 		leader->group_leader = tsk;
 
 		tsk->exit_signal = SIGCHLD;
-		/*
-		 * need to delete leader from adj tree, because it will not be
-		 * group leader (exit_signal = -1) soon. release_task(leader)
-		 * can't delete it.
-		 */
-		spin_lock_irq(lock);
-		delete_from_adj_tree(leader);
-		add_2_adj_tree(tsk);
-		spin_unlock_irq(lock);
 		leader->exit_signal = -1;
 
 		BUG_ON(leader->exit_state != EXIT_ZOMBIE);
