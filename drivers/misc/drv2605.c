@@ -153,6 +153,10 @@
 #define REAL_TIME_PLAYBACK_STRENGTH 0x7F
 #endif
 
+#define MAX_VIBE_STRENGTH   REAL_TIME_PLAYBACK_STRENGTH
+#define MIN_VIBE_STRENGTH   0x20
+#define DEF_VIBE_STRENGTH   MAX_VIBE_STRENGTH
+
 #define MAX_TIMEOUT 15000	/* 15s */
 
 #define DEFAULT_EFFECT 14	/* Strong buzz 100% */
@@ -196,6 +200,7 @@ static struct vibrator {
 
 static char g_effect_bank = EFFECT_LIBRARY;
 static int device_id = -1;
+static int vibe_strength = DEF_VIBE_STRENGTH;
 
 static unsigned char ERM_autocal_sequence[] = {
 	MODE_REG, AUTO_CALIBRATION,
@@ -295,6 +300,80 @@ static unsigned char LRA_init_sequence[] = {
 	AUTOCAL_MEM_INTERFACE_REG, AUTOCAL_TIME_500MS,
 };
 #endif
+
+static ssize_t drv260x_vib_min_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", MIN_VIBE_STRENGTH);
+}
+
+static ssize_t drv260x_vib_max_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", MAX_VIBE_STRENGTH);
+}
+
+static ssize_t drv260x_vib_level_default_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", DEF_VIBE_STRENGTH);
+}
+
+static ssize_t drv260x_vib_level_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", vibe_strength);
+}
+
+
+static ssize_t drv260x_vib_level_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int rc;
+	int val;
+
+	rc = kstrtoint(buf, 10, &val);
+	if (rc) {
+		pr_err("%s: error getting level\n", __func__);
+		return -EINVAL;
+	}
+
+	if (val < MIN_VIBE_STRENGTH) {
+		pr_err("%s: level %d not in range (%d - %d), using min.\n",
+				__func__, val, MIN_VIBE_STRENGTH, MAX_VIBE_STRENGTH);
+		val = MIN_VIBE_STRENGTH;
+	} else if (val > MAX_VIBE_STRENGTH) {
+		pr_err("%s: level %d not in range (%d - %d), using max.\n",
+				__func__, val, MIN_VIBE_STRENGTH, MAX_VIBE_STRENGTH);
+		val = MAX_VIBE_STRENGTH;
+	}
+
+	vibe_strength = val;
+
+	return strnlen(buf, count);
+}
+
+static DEVICE_ATTR(vtg_min, S_IRUGO, drv260x_vib_min_show, NULL);
+static DEVICE_ATTR(vtg_max, S_IRUGO, drv260x_vib_max_show, NULL);
+static DEVICE_ATTR(vtg_level_default, S_IRUGO, drv260x_vib_level_default_show, NULL);
+static DEVICE_ATTR(vtg_level, S_IRUGO | S_IWUSR, drv260x_vib_level_show, drv260x_vib_level_store);
+
+static struct attribute *timed_dev_attrs[] = {
+	&dev_attr_vtg_min.attr,
+	&dev_attr_vtg_max.attr,
+	&dev_attr_vtg_level_default.attr,
+	&dev_attr_vtg_level.attr,
+	NULL,
+};
+
+static struct attribute_group timed_dev_attr_group = {
+	.attrs = timed_dev_attrs,
+};
 
 #ifdef CONFIG_OF
 static struct drv260x_platform_data *drv260x_of_init(struct i2c_client *client)
@@ -587,7 +666,7 @@ static void vibrator_enable(struct timed_output_dev *dev, int value)
 		if (mode != MODE_REAL_TIME_PLAYBACK) {
 			if (audio_haptics_enabled && mode == MODE_AUDIOHAPTIC)
 				setAudioHapticsEnabled(NO);
-			drv260x_set_rtp_val(REAL_TIME_PLAYBACK_STRENGTH);
+			drv260x_set_rtp_val(vibe_strength);
 			drv260x_change_mode(MODE_REAL_TIME_PLAYBACK);
 			vibrator_is_playing = YES;
 		}
@@ -954,6 +1033,10 @@ static void probe_work(struct work_struct *work)
 		return;
 	}
 
+	if (sysfs_create_group(&to_dev.dev->kobj, &timed_dev_attr_group)) {
+		printk(KERN_ALERT "drv260x: fail to create strength tunables\n");
+	}
+
 	printk(KERN_ALERT "drv260x probe work succeeded");
 	return;
 }
@@ -1070,7 +1153,7 @@ static ssize_t drv260x_write(struct file *filp, const char __user *buff, size_t 
 					    && mode == MODE_AUDIOHAPTIC)
 						setAudioHapticsEnabled(NO);
 					drv260x_set_rtp_val
-					    (REAL_TIME_PLAYBACK_STRENGTH);
+					    (vibe_strength);
 					drv260x_change_mode
 					    (MODE_REAL_TIME_PLAYBACK);
 					vibrator_is_playing = YES;
