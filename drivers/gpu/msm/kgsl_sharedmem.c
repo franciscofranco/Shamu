@@ -604,6 +604,10 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	if (size == 0 || size > UINT_MAX)
 		return -EINVAL;
 
+	size = PAGE_ALIGN(size);
+	if (size == 0 || size > UINT_MAX)
+		return -EINVAL;
+
 	align = (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
 
 	page_size = (align >= ilog2(SZ_64K) && size >= SZ_64K)
