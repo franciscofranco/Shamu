@@ -335,7 +335,6 @@ struct kgsl_device {
 	int mem_log;
 	int pwr_log;
 	struct kgsl_pwrscale pwrscale;
-	struct work_struct event_work;
 
 	int reset_counter; /* Track how many GPU core resets have occured */
 	int cff_dump_enable;
@@ -351,8 +350,6 @@ struct kgsl_device {
 	.cmdbatch_gate = COMPLETION_INITIALIZER((_dev).cmdbatch_gate),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
-	.event_work  = __WORK_INITIALIZER((_dev).event_work,\
-			kgsl_process_events),\
 	.snapshot_obj_ws = \
 		__WORK_INITIALIZER((_dev).snapshot_obj_ws,\
 		kgsl_snapshot_save_frozen_objs),\
@@ -587,7 +584,7 @@ void kgsl_cancel_event(struct kgsl_device *device,
 		kgsl_event_func func, void *priv);
 int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		unsigned int timestamp, kgsl_event_func func, void *priv);
-void kgsl_process_events(struct work_struct *work);
+void kgsl_process_event_groups(struct kgsl_device *device);
 
 static inline struct kgsl_device_platform_data *
 kgsl_device_get_drvdata(struct kgsl_device *dev)
