@@ -43,6 +43,8 @@
 #define USB_VENDOR_GENESYS_LOGIC		0x05e3
 #define HUB_QUIRK_CHECK_PORT_AUTOSUSPEND	0x01
 
+int deny_new_usb = 0;
+
 static inline int hub_is_superspeed(struct usb_device *hdev)
 {
 	return (hdev->descriptor.bDeviceProtocol == USB_HUB_PR_SS);
@@ -4657,12 +4659,19 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
   			goto done;
 		return;
 	}
+
+	if (deny_new_usb) {
+		dev_err(hub_dev, "denied insert of USB device on port %d\n", port1);
+		goto done;
+	}
+
 	if (hub_is_superspeed(hub->hdev))
 		unit_load = 150;
 	else
 		unit_load = 100;
 
 	status = 0;
+
 	for (i = 0; i < SET_CONFIG_TRIES; i++) {
 
 		/* reallocate for each attempt, since references
