@@ -315,7 +315,7 @@ static ssize_t drv260x_vib_max_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", MAX_VIBE_STRENGTH);
 }
 
-static ssize_t drv260x_vib_level_default_show(struct device *dev,
+static ssize_t drv260x_vib_default_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
@@ -360,13 +360,13 @@ static ssize_t drv260x_vib_level_store(struct device *dev,
 
 static DEVICE_ATTR(vtg_min, S_IRUGO, drv260x_vib_min_show, NULL);
 static DEVICE_ATTR(vtg_max, S_IRUGO, drv260x_vib_max_show, NULL);
-static DEVICE_ATTR(vtg_level_default, S_IRUGO, drv260x_vib_level_default_show, NULL);
+static DEVICE_ATTR(vtg_default, S_IRUGO, drv260x_vib_default_show, NULL);
 static DEVICE_ATTR(vtg_level, S_IRUGO | S_IWUSR, drv260x_vib_level_show, drv260x_vib_level_store);
 
 static struct attribute *timed_dev_attrs[] = {
 	&dev_attr_vtg_min.attr,
 	&dev_attr_vtg_max.attr,
-	&dev_attr_vtg_level_default.attr,
+	&dev_attr_vtg_default.attr,
 	&dev_attr_vtg_level.attr,
 	NULL,
 };
