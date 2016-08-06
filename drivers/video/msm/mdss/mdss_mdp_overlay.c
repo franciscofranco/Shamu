@@ -2406,7 +2406,7 @@ static ssize_t hbm_store(struct device *dev,
 	}
 
 	r = kstrtoint(buf, 0, &enable);
-	if ((r) || ((enable != 0) && (enable != 1))) {
+	if (r) {
 		pr_err("invalid HBM value = %d\n",
 			enable);
 		r = -EINVAL;
@@ -2421,8 +2421,9 @@ static ssize_t hbm_store(struct device *dev,
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	/* Treat '0' as disable, anything else as enable. */
 	r = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_ENABLE_HBM,
-				(void *) enable);
+				(void *) !!enable);
 	if (r) {
 		pr_err("Failed sending HBM command, r = %d\n", r);
 		r = -EFAULT;
