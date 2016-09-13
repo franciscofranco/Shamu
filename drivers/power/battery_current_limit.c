@@ -39,7 +39,8 @@
 #define BTM_8084_FREQ_MITIG_LIMIT 1958400
 #define BTM_SMB135X_VOLTAGE_MIN 2750000
 
-static bool bcl_hotplug_enable = true;
+/* This'll be enabled by default after boot */
+static bool bcl_hotplug_enable = false;
 module_param(bcl_hotplug_enable, bool, 0644);
 
 static char *battery_str = "battery";
