@@ -1911,7 +1911,8 @@ static int smb135x_battery_set_property(struct power_supply *psy,
 		smb_stay_awake(&chip->smb_wake_source);
 		chip->bms_check = 1;
 		cancel_delayed_work(&chip->heartbeat_work);
-		schedule_delayed_work(&chip->heartbeat_work,
+		queue_delayed_work(system_power_efficient_wq,
+			&chip->heartbeat_work,
 			msecs_to_jiffies(0));
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
@@ -1921,7 +1922,8 @@ static int smb135x_battery_set_property(struct power_supply *psy,
 		smb135x_set_chrg_path_temp(chip);
 		chip->temp_check = 1;
 		cancel_delayed_work(&chip->heartbeat_work);
-		schedule_delayed_work(&chip->heartbeat_work,
+		queue_delayed_work(system_power_efficient_wq,
+			&chip->heartbeat_work,
 			msecs_to_jiffies(0));
 		break;
 	/* Block from Fuel Gauge */
@@ -2598,7 +2600,8 @@ static void aicl_check_work(struct work_struct *work)
 		chip->aicl_weak_detect = true;
 
 	cancel_delayed_work(&chip->src_removal_work);
-	schedule_delayed_work(&chip->src_removal_work,
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->src_removal_work,
 		msecs_to_jiffies(3000));
 	if (!rc) {
 		dev_dbg(chip->dev, "Reached Bottom IC!\n");
@@ -2678,8 +2681,9 @@ static void rate_check_work(struct work_struct *work)
 
 	chip->rate_check_count++;
 	if (chip->rate_check_count < 6)
-		schedule_delayed_work(&chip->rate_check_work,
-				      msecs_to_jiffies(500));
+		queue_delayed_work(system_power_efficient_wq,
+				&chip->rate_check_work,
+				msecs_to_jiffies(500));
 }
 
 static void usb_insertion_work(struct work_struct *work)
@@ -2734,8 +2738,9 @@ static void heartbeat_work(struct work_struct *work)
 	    smb135x_get_prop_batt_health(chip, &batt_health)) {
 		dev_warn(chip->dev, "HB Failed to run resume = %d!\n",
 			 (int)chip->resume_completed);
-		schedule_delayed_work(&chip->heartbeat_work,
-				      msecs_to_jiffies(1000));
+			queue_delayed_work(system_power_efficient_wq,
+				&chip->heartbeat_work,
+				msecs_to_jiffies(1000));
 		return;
 	}
 
@@ -2833,8 +2838,9 @@ static void heartbeat_work(struct work_struct *work)
 
 	power_supply_changed(&chip->batt_psy);
 
-	schedule_delayed_work(&chip->heartbeat_work,
-			      msecs_to_jiffies(60000));
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->heartbeat_work,
+		msecs_to_jiffies(60000));
 	chip->hb_running = false;
 	if (!usb_present && !dc_present)
 		smb_relax(&chip->smb_wake_source);
@@ -2945,7 +2951,8 @@ static int otg_oc_handler(struct smb135x_chg *chip, u8 rt_stat)
 		return 0;
 	}
 
-	schedule_delayed_work(&chip->ocp_clear_work,
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->ocp_clear_work,
 		msecs_to_jiffies(0));
 
 	pr_err("rt_stat = 0x%02x\n", rt_stat);
@@ -2970,7 +2977,8 @@ static int handle_dc_removal(struct smb135x_chg *chip)
 static int handle_dc_insertion(struct smb135x_chg *chip)
 {
 	if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS)
-		schedule_delayed_work(&chip->wireless_insertion_work,
+		queue_delayed_work(system_power_efficient_wq,
+			&chip->wireless_insertion_work,
 			msecs_to_jiffies(DCIN_UNSUSPEND_DELAY_MS));
 	if (chip->dc_psy_type != -EINVAL)
 		power_supply_set_online(&chip->dc_psy,
@@ -3121,8 +3129,9 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 		smb_stay_awake(&chip->smb_wake_source);
 		chip->apsd_rerun_cnt++;
 		chip->usb_present = 0;
-		schedule_delayed_work(&chip->usb_insertion_work,
-				      msecs_to_jiffies(1000));
+		queue_delayed_work(system_power_efficient_wq,
+			&chip->usb_insertion_work,
+			msecs_to_jiffies(1000));
 		return 0;
 	}
 
@@ -3162,8 +3171,9 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	chip->charger_rate =  POWER_SUPPLY_CHARGE_RATE_NORMAL;
 	chip->rate_check_count = 0;
 	cancel_delayed_work(&chip->rate_check_work);
-	schedule_delayed_work(&chip->rate_check_work,
-			      msecs_to_jiffies(500));
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->rate_check_work,
+		msecs_to_jiffies(500));
 	return 0;
 }
 
@@ -3204,8 +3214,9 @@ static int usbin_uv_handler(struct smb135x_chg *chip, u8 rt_stat)
 			if (rc < 0)
 				pr_err("Failed to Disable USBIN UV IRQ\n");
 			cancel_delayed_work(&chip->aicl_check_work);
-			schedule_delayed_work(&chip->aicl_check_work,
-					      msecs_to_jiffies(0));
+			queue_delayed_work(system_power_efficient_wq,
+				&chip->aicl_check_work,
+				msecs_to_jiffies(0));
 		}
 		return 0;
 	}
@@ -5435,8 +5446,9 @@ static int smb135x_charger_probe(struct i2c_client *client,
 	if (rc < 0)
 		pr_err("failed to set up voltage notifications: %d\n", rc);
 
-	schedule_delayed_work(&chip->heartbeat_work,
-			      msecs_to_jiffies(60000));
+	queue_delayed_work(system_power_efficient_wq,
+			&chip->heartbeat_work,
+			msecs_to_jiffies(60000));
 
 	dev_info(chip->dev, "SMB135X version = %s revision = %s successfully probed batt=%d dc = %d usb = %d\n",
 			version_str[chip->version],
