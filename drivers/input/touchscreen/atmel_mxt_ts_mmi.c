@@ -2404,7 +2404,7 @@ static void mxt_wait_for_idle(struct mxt_data *data)
 		if (!state)
 			break;
 		usleep_range(1000, 1000);
-	} while (++timeout_retries < 100);
+	} while (++timeout_retries < 200);
 
 	if (!state)
 		dev_dbg(&data->client->dev, "reset took %ums\n",
