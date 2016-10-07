@@ -19,12 +19,14 @@
 #include <linux/sched.h>
 #include <linux/math64.h>
 
+#ifdef CONFIG_MSM_RUN_QUEUE_STATS
 static DEFINE_PER_CPU(u64, nr_prod_sum);
 static DEFINE_PER_CPU(u64, last_time);
 static DEFINE_PER_CPU(u64, nr);
 static DEFINE_PER_CPU(unsigned long, iowait_prod_sum);
 static DEFINE_PER_CPU(spinlock_t, nr_lock) = __SPIN_LOCK_UNLOCKED(nr_lock);
 static s64 last_get_time;
+#endif
 
 /**
  * sched_get_nr_running_avg
@@ -37,6 +39,7 @@ static s64 last_get_time;
  */
 void sched_get_nr_running_avg(int *avg, int *iowait_avg)
 {
+#ifdef CONFIG_MSM_RUN_QUEUE_STATS
 	int cpu;
 	u64 curr_time = sched_clock();
 	u64 diff = curr_time - last_get_time;
@@ -76,6 +79,7 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg)
 	pr_debug("%s - avg:%d\n", __func__, *avg);
 	BUG_ON(*iowait_avg < 0);
 	pr_debug("%s - iowait_avg:%d\n", __func__, *iowait_avg);
+#endif
 }
 EXPORT_SYMBOL(sched_get_nr_running_avg);
 
@@ -90,6 +94,7 @@ EXPORT_SYMBOL(sched_get_nr_running_avg);
  */
 void sched_update_nr_prod(int cpu, long delta, bool inc)
 {
+#ifdef CONFIG_MSM_RUN_QUEUE_STATS
 	int diff;
 	s64 curr_time;
 	unsigned long flags, nr_running;
@@ -106,5 +111,6 @@ void sched_update_nr_prod(int cpu, long delta, bool inc)
 	per_cpu(nr_prod_sum, cpu) += nr_running * diff;
 	per_cpu(iowait_prod_sum, cpu) += nr_iowait_cpu(cpu) * diff;
 	spin_unlock_irqrestore(&per_cpu(nr_lock, cpu), flags);
+#endif
 }
 EXPORT_SYMBOL(sched_update_nr_prod);
