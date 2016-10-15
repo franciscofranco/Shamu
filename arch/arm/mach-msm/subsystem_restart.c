@@ -1229,10 +1229,13 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 			}
 		}
 
-		if (num == count && tmp->count == count)
+		if (num == count && tmp->count == count) {
+			mutex_unlock(&ssr_order_mutex);
 			return tmp;
-		else if (num)
+		} else if (num) {
+			mutex_unlock(&ssr_order_mutex);
 			return ERR_PTR(-EINVAL);
+		}
 	}
 
 	order->count = count;

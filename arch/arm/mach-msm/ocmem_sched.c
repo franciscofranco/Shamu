@@ -1564,7 +1564,7 @@ int process_free(int id, struct ocmem_handle *handle)
 		/* free the allocation */
 		rc = do_free(req);
 		if (rc < 0)
-			return -EINVAL;
+			goto free_fail;
 	}
 
 	inc_ocmem_stat(zone_of(req), NR_FREES);
@@ -2147,7 +2147,10 @@ retry_allocate:
 
 	if (rc == OP_FAIL) {
 		inc_ocmem_stat(zone_of(req), NR_ALLOCATION_FAILS);
-		goto err_allocate_fail;
+		// avoid unnecessary mutex_unlock
+		// goto err_allocate_fail;
+		up_write(&req->rw_sem);
+		return -EINVAL;
 	}
 
 	if (rc == OP_RESCHED) {
