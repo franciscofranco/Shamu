@@ -231,20 +231,15 @@ static void power_supply_callback(struct power_supply *psy)
 static void __ref bcl_handle_hotplug(void)
 {
 	int ret = 0, _cpu = 0;
-	uint32_t prev_hotplug_request = 0;
 
 	mutex_lock(&bcl_hotplug_mutex);
 	if (cpumask_empty(bcl_cpu_online_mask))
 		bcl_update_online_mask();
-	prev_hotplug_request = bcl_hotplug_request;
 
 	if (bcl_vph_state == BCL_LOW_THRESHOLD)
 		bcl_hotplug_request = bcl_hotplug_mask;
 	else
 		bcl_hotplug_request = 0;
-
-	if (bcl_hotplug_request == prev_hotplug_request)
-		goto handle_hotplug_exit;
 
 	for_each_possible_cpu(_cpu) {
 		if (!(bcl_hotplug_mask & BIT(_cpu))
@@ -261,8 +256,7 @@ static void __ref bcl_handle_hotplug(void)
 			else
 				pr_info("Set Offline CPU:%d\n", _cpu);
 		} else {
-			if (cpu_online(_cpu)
-				|| !(prev_hotplug_request & BIT(_cpu)))
+			if (cpu_online(_cpu))
 				continue;
 			ret = cpu_up(_cpu);
 			if (ret)
@@ -273,7 +267,6 @@ static void __ref bcl_handle_hotplug(void)
 		}
 	}
 
-handle_hotplug_exit:
 	mutex_unlock(&bcl_hotplug_mutex);
 	return;
 }
