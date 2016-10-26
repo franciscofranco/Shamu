@@ -140,7 +140,6 @@ struct cpu_dbs_common_info {
 	 * the previous load to the current interval only once, upon the first
 	 * wake-up from idle.
 	 */
-	unsigned int prev_load;
 	struct cpufreq_policy *cur_policy;
 	struct delayed_work work;
 	/*
