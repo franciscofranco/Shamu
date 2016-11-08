@@ -2447,7 +2447,7 @@ end:
 	return r ? r : count;
 }
 
-static DEVICE_ATTR(hbm, S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+static DEVICE_ATTR(hbm, S_IRWXU | S_IRWXG | S_IRWXO,
 		hbm_show, hbm_store);
 
 static struct attribute *hbm_attrs[] = {
