@@ -92,7 +92,6 @@ repeat:
 	if (unlikely(!PageUptodate(page)))
 		f2fs_stop_checkpoint(sbi);
 out:
-	mark_page_accessed(page);
 	return page;
 }
 

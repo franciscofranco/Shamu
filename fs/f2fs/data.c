@@ -12,7 +12,6 @@
 #include <linux/f2fs_fs.h>
 #include <linux/buffer_head.h>
 #include <linux/mpage.h>
-#include <linux/aio.h>
 #include <linux/writeback.h>
 #include <linux/backing-dev.h>
 #include <linux/pagevec.h>
@@ -28,13 +27,13 @@
 #include "trace.h"
 #include <trace/events/f2fs.h>
 
-static void f2fs_read_end_io(struct bio *bio, int err)
+static void f2fs_read_end_io(struct bio *bio)
 {
 	struct bio_vec *bvec;
 	int i;
 
 	if (f2fs_bio_encrypted(bio)) {
-		if (err) {
+		if (bio->bi_error) {
 			f2fs_release_crypto_ctx(bio->bi_private);
 		} else {
 			f2fs_end_io_crypto_work(bio->bi_private, bio);
@@ -45,7 +44,7 @@ static void f2fs_read_end_io(struct bio *bio, int err)
 	bio_for_each_segment_all(bvec, bio, i) {
 		struct page *page = bvec->bv_page;
 
-		if (!err) {
+		if (!bio->bi_error) {
 			SetPageUptodate(page);
 		} else {
 			ClearPageUptodate(page);
@@ -56,7 +55,7 @@ static void f2fs_read_end_io(struct bio *bio, int err)
 	bio_put(bio);
 }
 
-static void f2fs_write_end_io(struct bio *bio, int err)
+static void f2fs_write_end_io(struct bio *bio)
 {
 	struct f2fs_sb_info *sbi = bio->bi_private;
 	struct bio_vec *bvec;
@@ -67,7 +66,7 @@ static void f2fs_write_end_io(struct bio *bio, int err)
 
 		f2fs_restore_and_release_control_page(&page);
 
-		if (unlikely(err)) {
+		if (unlikely(bio->bi_error)) {
 			set_page_dirty(page);
 			set_bit(AS_EIO, &page->mapping->flags);
 			f2fs_stop_checkpoint(sbi);
@@ -94,7 +93,7 @@ static struct bio *__bio_alloc(struct f2fs_sb_info *sbi, block_t blk_addr,
 	bio = f2fs_bio_alloc(npages);
 
 	bio->bi_bdev = sbi->sb->s_bdev;
-	bio->bi_sector = SECTOR_FROM_BLOCK(blk_addr);
+	bio->bi_iter.bi_sector = SECTOR_FROM_BLOCK(blk_addr);
 	bio->bi_end_io = is_read ? f2fs_read_end_io : f2fs_write_end_io;
 	bio->bi_private = is_read ? NULL : sbi;
 
@@ -975,14 +974,14 @@ submit_and_realloc:
 			}
 
 			bio = bio_alloc(GFP_KERNEL,
-				min_t(int, nr_pages, bio_get_nr_vecs(bdev)));
+				min_t(int, nr_pages, BIO_MAX_PAGES));
 			if (!bio) {
 				if (ctx)
 					f2fs_release_crypto_ctx(ctx);
 				goto set_error_page;
 			}
 			bio->bi_bdev = bdev;
-			bio->bi_sector = SECTOR_FROM_BLOCK(block_nr);
+			bio->bi_iter.bi_sector = SECTOR_FROM_BLOCK(block_nr);
 			bio->bi_end_io = f2fs_read_end_io;
 			bio->bi_private = ctx;
 		}
@@ -1386,7 +1385,7 @@ static void f2fs_write_failed(struct address_space *mapping, loff_t to)
 	struct inode *inode = mapping->host;
 
 	if (to > inode->i_size) {
-		truncate_pagecache(inode, 0, inode->i_size);
+		truncate_pagecache(inode, inode->i_size);
 		truncate_blocks(inode, inode->i_size, true);
 	}
 }
@@ -1545,54 +1544,27 @@ static int f2fs_write_end(struct file *file,
 	return copied;
 }
 
-static ssize_t check_direct_IO(struct inode *inode, int rw,
-		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
+static int check_direct_IO(struct inode *inode, struct iov_iter *iter,
+			   loff_t offset)
 {
 	unsigned blocksize_mask = inode->i_sb->s_blocksize - 1;
-	int seg, i;
-	size_t size;
-	unsigned long addr;
-	ssize_t retval = -EINVAL;
-	loff_t end = offset;
 
 	if (offset & blocksize_mask)
 		return -EINVAL;
 
-	/* Check the memory alignment.  Blocks cannot straddle pages */
-	for (seg = 0; seg < nr_segs; seg++) {
-		addr = (unsigned long)iov[seg].iov_base;
-		size = iov[seg].iov_len;
-		end += size;
-		if ((addr & blocksize_mask) || (size & blocksize_mask))
-			goto out;
+	if (iov_iter_alignment(iter) & blocksize_mask)
+		return -EINVAL;
 
-		/* If this is a write we don't need to check anymore */
-		if (rw & WRITE)
-			continue;
-
-		/*
-		 * Check to make sure we don't have duplicate iov_base's in this
-		 * iovec, if so return EINVAL, otherwise we'll get csum errors
-		 * when reading back.
-		 */
-		for (i = seg + 1; i < nr_segs; i++) {
-			if (iov[seg].iov_base == iov[i].iov_base)
-				goto out;
-		}
-	}
-	retval = 0;
-out:
-	return retval;
+	return 0;
 }
 
-static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb,
-				const struct iovec *iov, loff_t offset,
-				unsigned long nr_segs)
+static ssize_t f2fs_direct_IO(struct kiocb *iocb, struct iov_iter *iter,
+			      loff_t offset)
 {
 	struct file *file = iocb->ki_filp;
 	struct address_space *mapping = file->f_mapping;
 	struct inode *inode = mapping->host;
-	size_t count = iov_length(iov, nr_segs);
+	size_t count = iov_iter_count(iter);
 	int err;
 
 	/* we don't need to use inline_data strictly */
@@ -1605,13 +1577,13 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb,
 	if (f2fs_encrypted_inode(inode) && S_ISREG(inode->i_mode))
 		return 0;
 
-	err = check_direct_IO(inode, rw, iov, offset, nr_segs);
+	err = check_direct_IO(inode, iter, offset);
 	if (err)
 		return err;
 
-	trace_f2fs_direct_IO_enter(inode, offset, count, rw);
+	trace_f2fs_direct_IO_enter(inode, offset, count, iov_iter_rw(iter));
 
-	if (rw & WRITE) {
+	if (iov_iter_rw(iter) == WRITE) {
 		__allocate_data_blocks(inode, offset, count);
 		if (unlikely(f2fs_cp_error(F2FS_I_SB(inode)))) {
 			err = -EIO;
@@ -1619,23 +1591,24 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb,
 		}
 	}
 
-	err = blockdev_direct_IO(rw, iocb, inode, iov, offset, nr_segs,
-							get_data_block_dio);
+	err = blockdev_direct_IO(iocb, inode, iter, offset, get_data_block_dio);
 out:
-	if (err < 0 && (rw & WRITE))
+	if (err < 0 && iov_iter_rw(iter) == WRITE)
 		f2fs_write_failed(mapping, offset + count);
 
-	trace_f2fs_direct_IO_exit(inode, offset, count, rw, err);
+	trace_f2fs_direct_IO_exit(inode, offset, count, iov_iter_rw(iter), err);
 
 	return err;
 }
 
-void f2fs_invalidate_page(struct page *page, unsigned long offset)
+void f2fs_invalidate_page(struct page *page, unsigned int offset,
+							unsigned int length)
 {
 	struct inode *inode = page->mapping->host;
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 
-	if (inode->i_ino >= F2FS_ROOT_INO(sbi) && (offset % PAGE_CACHE_SIZE))
+	if (inode->i_ino >= F2FS_ROOT_INO(sbi) &&
+		(offset % PAGE_CACHE_SIZE || length != PAGE_CACHE_SIZE))
 		return;
 
 	if (PageDirty(page)) {

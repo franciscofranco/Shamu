@@ -53,7 +53,7 @@ bool available_free_memory(struct f2fs_sb_info *sbi, int type)
 							PAGE_CACHE_SHIFT;
 		res = mem_size < ((avail_ram * nm_i->ram_thresh / 100) >> 2);
 	} else if (type == DIRTY_DENTS) {
-		if (sbi->sb->s_bdi->dirty_exceeded)
+		if (sbi->sb->s_bdi->wb.dirty_exceeded)
 			return false;
 		mem_size = get_pages(sbi, F2FS_DIRTY_DENTS);
 		res = mem_size < ((avail_ram * nm_i->ram_thresh / 100) >> 1);
@@ -70,7 +70,7 @@ bool available_free_memory(struct f2fs_sb_info *sbi, int type)
 				sizeof(struct extent_node)) >> PAGE_CACHE_SHIFT;
 		res = mem_size < ((avail_ram * nm_i->ram_thresh / 100) >> 1);
 	} else {
-		if (sbi->sb->s_bdi->dirty_exceeded)
+		if (sbi->sb->s_bdi->wb.dirty_exceeded)
 			return false;
 	}
 	return res;
@@ -1076,7 +1076,6 @@ repeat:
 		f2fs_put_page(page, 1);
 		goto repeat;
 	}
-	mark_page_accessed(page);
 	return page;
 }
 
@@ -1133,7 +1132,6 @@ page_hit:
 		f2fs_put_page(page, 1);
 		return ERR_PTR(-EIO);
 	}
-	mark_page_accessed(page);
 	return page;
 }
 
