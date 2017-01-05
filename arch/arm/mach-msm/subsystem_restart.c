@@ -1229,12 +1229,11 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 			}
 		}
 
-		if (num == count && tmp->count == count) {
-			mutex_unlock(&ssr_order_mutex);
-			return tmp;
-		} else if (num) {
-			mutex_unlock(&ssr_order_mutex);
-			return ERR_PTR(-EINVAL);
+		if (num == count && tmp->count == count)
+			goto err;
+		else if (num) {
+			tmp = ERR_PTR(-EINVAL);
+			goto err;
 		}
 	}
 
@@ -1247,6 +1246,9 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 	mutex_unlock(&ssr_order_mutex);
 
 	return order;
+err:
+	mutex_unlock(&ssr_order_mutex);
+	return tmp;
 }
 
 static int __get_gpio(struct subsys_desc *desc, const char *prop,
