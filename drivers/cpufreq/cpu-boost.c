@@ -334,6 +334,9 @@ static void do_input_boost(struct work_struct *work)
 	unsigned int i;
 	struct cpu_sync *i_sync_info;
 
+	if (!input_boost_ms)
+		return;
+
 	cancel_delayed_work_sync(&input_boost_rem);
 
 	/* Set the input_boost_min for all CPUs in the system */
