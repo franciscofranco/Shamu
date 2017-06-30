@@ -2400,7 +2400,7 @@ static ssize_t hbm_store(struct device *dev,
 	int r;
 
 	if (!ctl) {
-		pr_warning("there is no ctl attached to fb\n");
+		pr_debug("there is no ctl attached to fb\n");
 		r = -ENODEV;
 		goto end;
 	}
@@ -2415,7 +2415,7 @@ static ssize_t hbm_store(struct device *dev,
 
 	mutex_lock(&ctl->offlock);
 	if (!mdss_fb_is_power_on(mfd)) {
-		pr_warning("panel is not powered\n");
+		pr_debug("panel is not powered\n");
 		r = -EPERM;
 		goto unlock;
 	}
@@ -2427,8 +2427,9 @@ static ssize_t hbm_store(struct device *dev,
 	if (r) {
 		pr_err("Failed sending HBM command, r = %d\n", r);
 		r = -EFAULT;
-	} else
-		pr_info("HBM state changed by sysfs, state = %d\n", enable);
+	} else {
+		pr_debug("HBM state changed by sysfs, state = %d\n", enable);
+	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
