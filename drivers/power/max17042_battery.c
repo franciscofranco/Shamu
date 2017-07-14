@@ -110,6 +110,7 @@
 #define REVISION			"rev"
 
 #define MAX17042_CHRG_CONV_FCTR         500
+#define MAX17042_DELAY			1000
 
 struct max17042_wakeup_source {
 	struct wakeup_source    source;
@@ -121,7 +122,7 @@ struct max17042_chip {
 	struct power_supply battery;
 	enum max170xx_chip_type chip_type;
 	struct max17042_platform_data *pdata;
-	struct work_struct work;
+	struct delayed_work work;
 	struct work_struct check_temp_work;
 	struct mutex check_temp_lock;
 	int    init_complete;
@@ -354,7 +355,7 @@ static int max17042_set_property(struct power_supply *psy,
 	switch (prop) {
 	case POWER_SUPPLY_PROP_TEMP_HOTSPOT:
 		chip->hotspot_temp = val->intval;
-		schedule_work(&chip->check_temp_work);
+		queue_work(system_power_efficient_wq, &chip->check_temp_work);
 		break;
 	default:
 		return -EINVAL;
@@ -1108,7 +1109,8 @@ static irqreturn_t max17042_thread_handler(int id, void *dev)
 	if ((val & STATUS_POR_BIT) && chip->init_complete) {
 		dev_warn(&chip->client->dev, "POR Detected, Loading Config\n");
 		chip->init_complete = 0;
-		schedule_work(&chip->work);
+		queue_delayed_work(system_power_efficient_wq, &chip->work,
+			   MAX17042_DELAY);
 
 		return IRQ_HANDLED;
 	}
@@ -1147,7 +1149,8 @@ static irqreturn_t max17042_thread_handler(int id, void *dev)
 static void max17042_init_worker(struct work_struct *work)
 {
 	struct max17042_chip *chip = container_of(work,
-				struct max17042_chip, work);
+				struct max17042_chip, work.work);
+
 	int ret;
 
 	/* Initialize registers according to values from the platform data */
@@ -1914,7 +1917,7 @@ iterm_fail:
 	dev_dbg(&chip->client->dev,
 		"SW ITERM Done!\n");
 	chip->taper_reached = taper_hit;
-	schedule_delayed_work(&chip->iterm_work,
+	queue_delayed_work(system_power_efficient_wq, &chip->iterm_work,
 			      msecs_to_jiffies(resch_time));
 	max17042_relax(&chip->max17042_wake_source);
 	return;
@@ -2064,14 +2067,16 @@ static int max17042_probe(struct i2c_client *client,
 	reg2 = max17042_read_reg(chip->client, MAX17050_CFG_REV_REG);
 	reg2 &= MAX17050_CFG_REV_MASK;
 
-	INIT_WORK(&chip->work, max17042_init_worker);
+	INIT_DEFERRABLE_WORK(&chip->work, max17042_init_worker);
 
 	if (reg & STATUS_POR_BIT) {
 		dev_warn(&client->dev, "POR Detected, Loading Config\n");
-		schedule_work(&chip->work);
+		queue_delayed_work(system_power_efficient_wq, &chip->work,
+			   MAX17042_DELAY);
 	} else if (reg2 != chip->pdata->config_data->revision) {
 		dev_warn(&client->dev, "Revision Change, Loading Config\n");
-		schedule_work(&chip->work);
+		queue_delayed_work(system_power_efficient_wq, &chip->work,
+			   MAX17042_DELAY);
 	} else {
 		config = chip->pdata->config_data;
 		if (chip->chip_type == MAX17047)
@@ -2092,7 +2097,7 @@ static int max17042_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->iterm_work,
 			  iterm_work);
 
-	schedule_delayed_work(&chip->iterm_work,
+	queue_delayed_work(system_power_efficient_wq, &chip->iterm_work,
 			      msecs_to_jiffies(10000));
 
 	return 0;
@@ -2113,7 +2118,9 @@ static int max17042_remove(struct i2c_client *client)
 		free_irq(client->irq, chip);
 	gpio_free_array(chip->pdata->gpio_list, chip->pdata->num_gpio_list);
 	power_supply_unregister(&chip->battery);
+	cancel_delayed_work(&chip->work);
 	wakeup_source_trash(&chip->max17042_wake_source.source);
+	cancel_delayed_work(&chip->iterm_work);
 	return 0;
 }
 
