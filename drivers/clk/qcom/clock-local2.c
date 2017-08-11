@@ -150,12 +150,13 @@ void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 
 static int rcg_clk_prepare(struct clk *c)
 {
+#if 0
 	struct rcg_clk *rcg = to_rcg_clk(c);
 
 	WARN(rcg->current_freq == &rcg_dummy_freq,
 		"Attempting to prepare %s before setting its rate. "
 		"Set the rate first!\n", rcg->c.dbg_name);
-
+#endif
 	return 0;
 }
 
