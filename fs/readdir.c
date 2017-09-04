@@ -47,14 +47,6 @@ out:
 
 EXPORT_SYMBOL(vfs_readdir);
 
-static bool hide_name(const char *name, int namlen)
-{
-	if (namlen == 2 && !memcmp(name, "su", 2))
-		if (!su_visible())
-			return true;
-	return false;
-}
-
 /*
  * Traditional linux readdir() handling..
  *
@@ -76,7 +68,6 @@ struct old_linux_dirent {
 struct readdir_callback {
 	struct old_linux_dirent __user * dirent;
 	int result;
-	bool romnt;
 };
 
 static int fillonedir(void * __buf, const char * name, int namlen, loff_t offset,
@@ -93,8 +84,6 @@ static int fillonedir(void * __buf, const char * name, int namlen, loff_t offset
 		buf->result = -EOVERFLOW;
 		return -EOVERFLOW;
 	}
-	if (hide_name(name, namlen) && buf->romnt)
-		return 0;
 	buf->result++;
 	dirent = buf->dirent;
 	if (!access_ok(VERIFY_WRITE, dirent,
@@ -125,7 +114,6 @@ SYSCALL_DEFINE3(old_readdir, unsigned int, fd,
 
 	buf.result = 0;
 	buf.dirent = dirent;
-	buf.romnt = (f.file->f_path.dentry->d_sb->s_flags & MS_RDONLY);
 
 	error = vfs_readdir(f.file, fillonedir, &buf);
 	if (buf.result)
@@ -153,7 +141,6 @@ struct getdents_callback {
 	struct linux_dirent __user * previous;
 	int count;
 	int error;
-	bool romnt;
 };
 
 static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
@@ -173,8 +160,6 @@ static int filldir(void * __buf, const char * name, int namlen, loff_t offset,
 		buf->error = -EOVERFLOW;
 		return -EOVERFLOW;
 	}
-	if (hide_name(name, namlen) && buf->romnt)
-		return 0;
 	dirent = buf->previous;
 	if (dirent) {
 		if (__put_user(offset, &dirent->d_off))
@@ -220,7 +205,6 @@ SYSCALL_DEFINE3(getdents, unsigned int, fd,
 	buf.previous = NULL;
 	buf.count = count;
 	buf.error = 0;
-	buf.romnt = (f.file->f_path.dentry->d_sb->s_flags & MS_RDONLY);
 
 	error = vfs_readdir(f.file, filldir, &buf);
 	if (error >= 0)
@@ -241,7 +225,6 @@ struct getdents_callback64 {
 	struct linux_dirent64 __user * previous;
 	int count;
 	int error;
-	bool romnt;
 };
 
 static int filldir64(void * __buf, const char * name, int namlen, loff_t offset,
@@ -255,8 +238,6 @@ static int filldir64(void * __buf, const char * name, int namlen, loff_t offset,
 	buf->error = -EINVAL;	/* only used if we fail.. */
 	if (reclen > buf->count)
 		return -EINVAL;
-	if (hide_name(name, namlen) && buf->romnt)
-		return 0;
 	dirent = buf->previous;
 	if (dirent) {
 		if (__put_user(offset, &dirent->d_off))
@@ -304,7 +285,6 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 	buf.previous = NULL;
 	buf.count = count;
 	buf.error = 0;
-	buf.romnt = (f.file->f_path.dentry->d_sb->s_flags & MS_RDONLY);
 
 	error = vfs_readdir(f.file, filldir64, &buf);
 	if (error >= 0)
