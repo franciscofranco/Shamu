@@ -28,6 +28,8 @@
 #include <linux/time.h>
 #include <linux/fsync.h>
 
+#include "../../kernel/sched/sched.h"
+
 struct cpu_sync {
 	struct task_struct *thread;
 	wait_queue_head_t sync_wq;
