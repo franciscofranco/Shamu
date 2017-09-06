@@ -1914,8 +1914,8 @@ iterm_fail:
 	dev_dbg(&chip->client->dev,
 		"SW ITERM Done!\n");
 	chip->taper_reached = taper_hit;
-	schedule_delayed_work(&chip->iterm_work,
-			      msecs_to_jiffies(resch_time));
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->iterm_work, msecs_to_jiffies(resch_time));
 	max17042_relax(&chip->max17042_wake_source);
 	return;
 }
@@ -2092,8 +2092,8 @@ static int max17042_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->iterm_work,
 			  iterm_work);
 
-	schedule_delayed_work(&chip->iterm_work,
-			      msecs_to_jiffies(10000));
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->iterm_work, msecs_to_jiffies(10000));
 
 	return 0;
 }
