@@ -378,7 +378,8 @@ static irqreturn_t smb350_irq(int irq, void *dev_id)
 	pr_debug("\n");
 
 	/* I2C transfers API should not run in interrupt context */
-	schedule_delayed_work(&dev->irq_work, msecs_to_jiffies(100));
+	queue_delayed_work(system_power_efficient_wq,
+		&dev->irq_work, msecs_to_jiffies(100));
 
 	return IRQ_HANDLED;
 }
