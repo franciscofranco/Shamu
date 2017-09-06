@@ -403,6 +403,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->policy->cur;
 	this_hispeed_freq = max(hispeed_freq, pcpu->policy->min);
+	this_hispeed_freq = min(this_hispeed_freq, pcpu->policy->max);
 
 	new_load_pct = cpu_load * 100 / max(1, pcpu->prev_load);
 	pcpu->prev_load = cpu_load;
