@@ -833,9 +833,9 @@ static void bq28400_periodic_user_space_update_worker(struct work_struct *work)
 	/* Notify user space via kobject_uevent change notification */
 	power_supply_changed(&bq28400_dev->batt_psy);
 
-	schedule_delayed_work(&bq28400_dev->periodic_user_space_update_work,
-			      round_jiffies_relative(msecs_to_jiffies
-						     (delay_msec)));
+	queue_delayed_work(system_power_efficient_wq,
+		&bq28400_dev->periodic_user_space_update_work,
+		round_jiffies_relative(msecs_to_jiffies(delay_msec)));
 }
 
 static int bq28400_probe(struct i2c_client *client,
@@ -901,8 +901,9 @@ static int bq28400_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&bq28400_dev->periodic_user_space_update_work,
 			  bq28400_periodic_user_space_update_worker);
 
-	schedule_delayed_work(&bq28400_dev->periodic_user_space_update_work,
-			      msecs_to_jiffies(1000));
+	queue_delayed_work(system_power_efficient_wq,
+		&bq28400_dev->periodic_user_space_update_work,
+		msecs_to_jiffies(1000));
 
 	pr_debug("Device is ready.\n");
 
