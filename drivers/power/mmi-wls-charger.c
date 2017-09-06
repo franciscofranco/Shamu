@@ -407,8 +407,8 @@ static void mmi_wls_charger_external_power_changed(struct power_supply *psy)
 
 	dev_dbg(chip->dev, "mmi_wls_charger External Change Reported!\n");
 
-	schedule_delayed_work(&chip->mmi_wls_chrg_work,
-			      msecs_to_jiffies(100));
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->mmi_wls_chrg_work, msecs_to_jiffies(100));
 	return;
 }
 
@@ -642,8 +642,8 @@ static int mmi_wls_chrg_probe(struct i2c_client *client,
 
 	chip->force_shutdown = false;
 
-	schedule_delayed_work(&chip->mmi_wls_chrg_work,
-			      msecs_to_jiffies(100));
+	queue_delayed_work(system_power_efficient_wq,
+		&chip->mmi_wls_chrg_work, msecs_to_jiffies(100));
 
 	return 0;
 
