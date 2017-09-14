@@ -183,6 +183,7 @@ static DEFINE_MUTEX(bcl_notify_mutex);
 static uint32_t bcl_hotplug_request, bcl_hotplug_mask;
 static DEFINE_MUTEX(bcl_hotplug_mutex);
 static bool bcl_hotplug_enabled;
+module_param(bcl_hotplug_enabled, bool, 0644);
 static struct power_supply bcl_psy;
 static const char bcl_psy_name[] = "bcl";
 static bool bcl_hit_shutdown_voltage;
@@ -374,7 +375,8 @@ static void battery_monitor_work(struct work_struct *work)
 	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
 		bcl->btm_mode = BCL_VPH_MONITOR_MODE;
 		update_cpu_freq();
-		bcl_handle_hotplug();
+		if (bcl_hotplug_enabled)
+			bcl_handle_hotplug();
 		bcl_get_battery_voltage(&vbatt);
 		pr_debug("vbat is %d\n", vbatt);
 		if (bcl_vph_state == BCL_LOW_THRESHOLD) {
