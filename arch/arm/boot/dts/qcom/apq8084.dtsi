@@ -4929,7 +4929,7 @@
 
 		msm_thermal_freq: qcom,vdd-apps-rstr{
 			qcom,vdd-rstr-reg = "vdd-apps";
-			qcom,levels = <1958400 2150400 2150400>;
+			qcom,levels = <1497600 2150400 2150400>;
 			qcom,freq-req;
 		};
 	};
