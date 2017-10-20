@@ -636,19 +636,13 @@ static struct platform_driver bluesleep_driver = {
 static int bluesleep_proc_show(struct seq_file *m, void *v)
 {
 	switch ((long)m->private) {
-	case PROC_BTWAKE:
-		seq_printf(m, "btwake:%u\n", test_bit(BT_EXT_WAKE, &flags));
+	case PROC_LPM:
+		seq_printf(m, "lpm: %u\n",
+				test_bit(has_lpm_enabled, &flags) ? 1 : 0);
 		break;
-	case PROC_HOSTWAKE:
-		seq_printf(m, "hostwake: %u\n", gpio_get_value(bsi->host_wake));
-		break;
-	case PROC_PROTO:
-		seq_printf(m, "proto: %u\n",
-				test_bit(BT_PROTO, &flags) ? 1 : 0);
-		break;
-	case PROC_ASLEEP:
-		seq_printf(m, "asleep: %u\n",
-				test_bit(BT_ASLEEP, &flags) ? 1 : 0);
+	case PROC_BTWRITE:
+		seq_printf(m, "btwrite: %u\n",
+				test_bit(BT_TXDATA, &flags) ? 1 : 0);
 		break;
 	default:
 		return 0;
@@ -670,27 +664,6 @@ static ssize_t bluesleep_proc_write(struct file *file, const char *buf,
 	lbuf[count] = 0;
 
 	switch ((long)data) {
-	case PROC_BTWAKE:
-		if (lbuf[0] == '0') {
-			if (debug_mask & DEBUG_BTWAKE)
-				pr_info("BT WAKE: set to wake\n");
-			if (bsi->has_ext_wake == 1)
-				gpio_set_value(bsi->ext_wake, 0);
-			clear_bit(BT_EXT_WAKE, &flags);
-		} else if (buf[0] == '1') {
-			if (debug_mask & DEBUG_BTWAKE)
-				pr_info("BT WAKE: set to sleep\n");
-			if (bsi->has_ext_wake == 1)
-				gpio_set_value(bsi->ext_wake, 1);
-			set_bit(BT_EXT_WAKE, &flags);
-		}
-		break;
-	case PROC_PROTO:
-		if (lbuf[0] == '0')
-			bluesleep_stop();
-		else
-			bluesleep_start();
-		break;
 	case PROC_LPM:
 		if (lbuf[0] == '0') {
 			/* HCI_DEV_UNREG */
@@ -771,46 +744,6 @@ static int __init bluesleep_init(void)
 		return -ENOMEM;
 	}
 
-	/* Creating read/write "btwake" entry */
-	ent = proc_create_data("btwake", S_IRUGO | S_IWUSR | S_IWGRP,
-			sleep_dir, &bluesleep_proc_readwrite_fops,
-			(void *)PROC_BTWAKE);
-	if (ent == NULL) {
-		pr_err("Unable to create /proc/%s/btwake entry", PROC_DIR);
-		retval = -ENOMEM;
-		goto fail;
-	}
-
-	/* read only proc entries */
-	ent = proc_create_data("hostwake", S_IRUGO, sleep_dir,
-				&bluesleep_proc_read_fops,
-				(void *)PROC_HOSTWAKE);
-	if (ent == NULL) {
-		pr_err("Unable to create /proc/%s/hostwake entry", PROC_DIR);
-		retval = -ENOMEM;
-		goto fail;
-	}
-
-	/* read/write proc entries */
-	ent = proc_create_data("proto", S_IRUGO | S_IWUSR | S_IWGRP,
-			sleep_dir, &bluesleep_proc_readwrite_fops,
-			(void *)PROC_PROTO);
-	if (ent == NULL) {
-		pr_err("Unable to create /proc/%s/proto entry", PROC_DIR);
-		retval = -ENOMEM;
-		goto fail;
-	}
-
-	/* read only proc entries */
-	ent = proc_create_data("asleep", S_IRUGO,
-			sleep_dir, &bluesleep_proc_read_fops,
-			(void *)PROC_ASLEEP);
-	if (ent == NULL) {
-		pr_err("Unable to create /proc/%s/asleep entry", PROC_DIR);
-		retval = -ENOMEM;
-		goto fail;
-	}
-
 	/* read/write proc entries */
 	ent = proc_create_data("lpm", S_IRUGO | S_IWUSR | S_IWGRP,
 			sleep_dir, &bluesleep_proc_readwrite_fops,
@@ -856,10 +789,6 @@ static int __init bluesleep_init(void)
 fail:
 	remove_proc_entry("btwrite", sleep_dir);
 	remove_proc_entry("lpm", sleep_dir);
-	remove_proc_entry("asleep", sleep_dir);
-	remove_proc_entry("proto", sleep_dir);
-	remove_proc_entry("hostwake", sleep_dir);
-	remove_proc_entry("btwake", sleep_dir);
 	remove_proc_entry("sleep", bluetooth_dir);
 	remove_proc_entry("bluetooth", 0);
 	return retval;
@@ -890,10 +819,6 @@ static void __exit bluesleep_exit(void)
 
 	remove_proc_entry("btwrite", sleep_dir);
 	remove_proc_entry("lpm", sleep_dir);
-	remove_proc_entry("asleep", sleep_dir);
-	remove_proc_entry("proto", sleep_dir);
-	remove_proc_entry("hostwake", sleep_dir);
-	remove_proc_entry("btwake", sleep_dir);
 	remove_proc_entry("sleep", bluetooth_dir);
 	remove_proc_entry("bluetooth", 0);
 }
