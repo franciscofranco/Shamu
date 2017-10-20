@@ -371,14 +371,14 @@ static int bluesleep_start(void)
 
 	/* assert BT_WAKE */
 	if (debug_mask & DEBUG_BTWAKE)
-		pr_info("BT WAKE: set to wake\n");
+		pr_err("BT WAKE: set to wake\n");
 	if (bsi->has_ext_wake == 1)
 		gpio_set_value(bsi->ext_wake, 0);
 	clear_bit(BT_EXT_WAKE, &flags);
 #if BT_ENABLE_IRQ_WAKE
 	retval = enable_irq_wake(bsi->host_wake_irq);
 	if (retval < 0) {
-		BT_ERR("Couldn't enable BT_HOST_WAKE as wakeup interrupt");
+		pr_err("Couldn't enable BT_HOST_WAKE as wakeup interrupt");
 		goto fail;
 	}
 #endif
@@ -408,7 +408,7 @@ static void bluesleep_stop(void)
 
 	/* assert BT_WAKE */
 	if (debug_mask & DEBUG_BTWAKE)
-		pr_info("BT WAKE: set to wake\n");
+		pr_err("BT WAKE: set to wake\n");
 	if (bsi->has_ext_wake == 1)
 		gpio_set_value(bsi->ext_wake, 0);
 	clear_bit(BT_EXT_WAKE, &flags);
@@ -427,7 +427,7 @@ static void bluesleep_stop(void)
 
 #if BT_ENABLE_IRQ_WAKE
 	if (disable_irq_wake(bsi->host_wake_irq))
-		BT_ERR("Couldn't disable hostwake IRQ wakeup mode");
+		pr_err("Couldn't disable hostwake IRQ wakeup mode");
 #endif
 	wake_lock_timeout(&bsi->wake_lock, HZ / 2);
 }
@@ -444,7 +444,7 @@ static int bluesleep_populate_dt_pinfo(struct platform_device *pdev)
 
 	tmp = of_get_named_gpio(np, "bt_host_wake", 0);
 	if (tmp < 0) {
-		BT_ERR("couldn't find host_wake gpio");
+		pr_err("couldn't find host_wake gpio");
 		return -ENODEV;
 	}
 	bsi->host_wake = tmp;
@@ -471,7 +471,7 @@ static int bluesleep_populate_pinfo(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
 				"gpio_host_wake");
 	if (!res) {
-		BT_ERR("couldn't find host_wake gpio");
+		pr_err("couldn't find host_wake gpio");
 		return -ENODEV;
 	}
 	bsi->host_wake = res->start;
@@ -501,13 +501,13 @@ static int bluesleep_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		ret = bluesleep_populate_dt_pinfo(pdev);
 		if (ret < 0) {
-			BT_ERR("couldn't populate info from dt");
+			pr_err("couldn't populate info from dt");
 			return ret;
 		}
 	} else {
 		ret = bluesleep_populate_pinfo(pdev);
 		if (ret < 0) {
-			BT_ERR("couldn't populate info");
+			pr_err("couldn't populate info");
 			return ret;
 		}
 	}
@@ -515,19 +515,19 @@ static int bluesleep_probe(struct platform_device *pdev)
 	/* configure host_wake as input */
 	ret = gpio_request_one(bsi->host_wake, GPIOF_IN, "bt_host_wake");
 	if (ret < 0) {
-		BT_ERR("failed to configure input direction for GPIO %d err %d",
+		pr_err("failed to configure input direction for GPIO %d err %d",
 				bsi->host_wake, ret);
 		goto free_bsi;
 	}
 
 	if (debug_mask & DEBUG_BTWAKE)
-		pr_info("BT WAKE: set to wake\n");
+		pr_err("BT WAKE: set to wake\n");
 	if (bsi->has_ext_wake) {
 		/* configure ext_wake as output mode*/
 		ret = gpio_request_one(bsi->ext_wake,
 				GPIOF_OUT_INIT_LOW, "bt_ext_wake");
 		if (ret < 0) {
-			BT_ERR("failed to configure output direction for GPIO %d err %d",
+			pr_err("failed to configure output direction for GPIO %d err %d",
 					bsi->ext_wake, ret);
 			goto free_bt_host_wake;
 		}
@@ -537,13 +537,13 @@ static int bluesleep_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
 						"host_wake");
 	if (!res) {
-		BT_ERR("couldn't find host_wake irq");
+		pr_err("couldn't find host_wake irq");
 		ret = -ENODEV;
 		goto free_bt_host_wake;
 	}
 	bsi->host_wake_irq = res->start;
 	if (bsi->host_wake_irq < 0) {
-		BT_ERR("couldn't find host_wake irq");
+		pr_err("couldn't find host_wake irq");
 		ret = -ENODEV;
 		goto free_bt_ext_wake;
 	}
@@ -561,7 +561,7 @@ static int bluesleep_probe(struct platform_device *pdev)
 			IRQF_DISABLED | IRQF_TRIGGER_FALLING,
 			"bluetooth hostwake", NULL);
 	if (ret  < 0) {
-		BT_ERR("Couldn't acquire BT_HOST_WAKE IRQ");
+		pr_err("Couldn't acquire BT_HOST_WAKE IRQ");
 		goto free_bt_ext_wake;
 	}
 
@@ -742,7 +742,7 @@ static int __init bluesleep_init(void)
 	int retval;
 	struct proc_dir_entry *ent;
 
-	BT_INFO("BlueSleep Mode Driver Ver %s", VERSION);
+	pr_err("BlueSleep Mode Driver Ver %s", VERSION);
 
 	retval = platform_driver_register(&bluesleep_driver);
 	if (retval)
@@ -753,13 +753,13 @@ static int __init bluesleep_init(void)
 
 	bluetooth_dir = proc_mkdir("bluetooth", NULL);
 	if (bluetooth_dir == NULL) {
-		BT_ERR("Unable to create /proc/bluetooth directory");
+		pr_err("Unable to create /proc/bluetooth directory");
 		return -ENOMEM;
 	}
 
 	sleep_dir = proc_mkdir("sleep", bluetooth_dir);
 	if (sleep_dir == NULL) {
-		BT_ERR("Unable to create /proc/%s directory", PROC_DIR);
+		pr_err("Unable to create /proc/%s directory", PROC_DIR);
 		return -ENOMEM;
 	}
 
@@ -768,7 +768,7 @@ static int __init bluesleep_init(void)
 			sleep_dir, &bluesleep_proc_readwrite_fops,
 			(void *)PROC_BTWAKE);
 	if (ent == NULL) {
-		BT_ERR("Unable to create /proc/%s/btwake entry", PROC_DIR);
+		pr_err("Unable to create /proc/%s/btwake entry", PROC_DIR);
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -778,7 +778,7 @@ static int __init bluesleep_init(void)
 				&bluesleep_proc_read_fops,
 				(void *)PROC_HOSTWAKE);
 	if (ent == NULL) {
-		BT_ERR("Unable to create /proc/%s/hostwake entry", PROC_DIR);
+		pr_err("Unable to create /proc/%s/hostwake entry", PROC_DIR);
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -788,7 +788,7 @@ static int __init bluesleep_init(void)
 			sleep_dir, &bluesleep_proc_readwrite_fops,
 			(void *)PROC_PROTO);
 	if (ent == NULL) {
-		BT_ERR("Unable to create /proc/%s/proto entry", PROC_DIR);
+		pr_err("Unable to create /proc/%s/proto entry", PROC_DIR);
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -798,7 +798,7 @@ static int __init bluesleep_init(void)
 			sleep_dir, &bluesleep_proc_read_fops,
 			(void *)PROC_ASLEEP);
 	if (ent == NULL) {
-		BT_ERR("Unable to create /proc/%s/asleep entry", PROC_DIR);
+		pr_err("Unable to create /proc/%s/asleep entry", PROC_DIR);
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -808,7 +808,7 @@ static int __init bluesleep_init(void)
 			sleep_dir, &bluesleep_proc_readwrite_fops,
 			(void *)PROC_LPM);
 	if (ent == NULL) {
-		BT_ERR("Unable to create /proc/%s/lpm entry", PROC_DIR);
+		pr_err("Unable to create /proc/%s/lpm entry", PROC_DIR);
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -818,7 +818,7 @@ static int __init bluesleep_init(void)
 			sleep_dir, &bluesleep_proc_readwrite_fops,
 			(void *)PROC_BTWRITE);
 	if (ent == NULL) {
-		BT_ERR("Unable to create /proc/%s/btwrite entry", PROC_DIR);
+		pr_err("Unable to create /proc/%s/btwrite entry", PROC_DIR);
 		retval = -ENOMEM;
 		goto fail;
 	}
@@ -838,7 +838,7 @@ static int __init bluesleep_init(void)
 
 	/* assert bt wake */
 	if (debug_mask & DEBUG_BTWAKE)
-		pr_info("BT WAKE: set to wake\n");
+		pr_err("BT WAKE: set to wake\n");
 	if (bsi->has_ext_wake == 1)
 		gpio_set_value(bsi->ext_wake, 0);
 	clear_bit(BT_EXT_WAKE, &flags);
@@ -871,7 +871,7 @@ static void __exit bluesleep_exit(void)
 	clear_bit(BT_EXT_WAKE, &flags);
 	if (test_bit(BT_PROTO, &flags)) {
 		if (disable_irq_wake(bsi->host_wake_irq))
-			BT_ERR("Couldn't disable hostwake IRQ wakeup mode");
+			pr_err("Couldn't disable hostwake IRQ wakeup mode");
 		free_irq(bsi->host_wake_irq, NULL);
 		del_timer(&tx_timer);
 		if (test_bit(BT_ASLEEP, &flags))
