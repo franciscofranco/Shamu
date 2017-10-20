@@ -111,9 +111,6 @@ DECLARE_DELAYED_WORK(sleep_workqueue, bluesleep_sleep_work);
 #define bluesleep_rx_idle()     schedule_delayed_work(&sleep_workqueue, 0)
 #define bluesleep_tx_idle()     schedule_delayed_work(&sleep_workqueue, 0)
 
-/* 5 second timeout */
-#define TX_TIMER_INTERVAL  5
-
 /* state variable names and bit positions */
 #define BT_PROTO	0x01
 #define BT_TXDATA	0x02
@@ -151,10 +148,6 @@ static unsigned long flags;
 
 /** Tasklet to respond to change in hostwake line */
 static struct tasklet_struct hostwake_task;
-
-/** Transmission timer */
-static void bluesleep_tx_timer_expire(unsigned long data);
-static DEFINE_TIMER(tx_timer, bluesleep_tx_timer_expire, 0, 0);
 
 /** Lock for state transitions */
 static spinlock_t rw_lock;
@@ -199,8 +192,6 @@ void bluesleep_sleep_wakeup(void)
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("waking up...\n");
 		wake_lock(&bsi->wake_lock);
-		/* Start the timer */
-		mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL * HZ));
 		if (debug_mask & DEBUG_BTWAKE)
 			pr_info("BT WAKE: set to wake\n");
 		if (bsi->has_ext_wake == 1)
@@ -236,14 +227,9 @@ static void bluesleep_sleep_work(struct work_struct *work)
 			 * wakelock after 500 ms.
 			 */
 			wake_lock_timeout(&bsi->wake_lock, HZ / 2);
-		} else {
-
-		  mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL * HZ));
-			return;
 		}
 	} else if (test_bit(BT_EXT_WAKE, &flags)
 			&& !test_bit(BT_ASLEEP, &flags)) {
-		mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL * HZ));
 		if (debug_mask & DEBUG_BTWAKE)
 			pr_info("BT WAKE: set to wake\n");
 		if (bsi->has_ext_wake == 1)
@@ -298,36 +284,24 @@ static void bluesleep_outgoing_data(void)
 
 
 /**
- * Handles transmission timer expiration.
- * @param data Not used.
+ * Function to check wheather bluetooth can sleep when btwrite was deasserted
+ * by bluedroid.
  */
-static void bluesleep_tx_timer_expire(unsigned long data)
+static void bluesleep_tx_allow_sleep(void)
 {
 	unsigned long irq_flags;
 
 	if (debug_mask & DEBUG_VERBOSE)
-		pr_info("Tx timer expired\n");
+		pr_err("%s\n", __FUNCTION__);
+	if (debug_mask & DEBUG_SUSPEND)
+		pr_err("Tx has been idle\n");
 
 	spin_lock_irqsave(&rw_lock, irq_flags);
 
-	/* were we silent during the last timeout? */
-	if (!test_bit(BT_TXDATA, &flags)) {
-		if (debug_mask & DEBUG_SUSPEND)
-			pr_info("Tx has been idle\n");
-		if (debug_mask & DEBUG_BTWAKE)
-			pr_info("BT WAKE: set to sleep\n");
-		if (bsi->has_ext_wake == 1)
-			gpio_set_value(bsi->ext_wake, 1);
-		set_bit(BT_EXT_WAKE, &flags);
-		bluesleep_tx_idle();
-	} else {
-		if (debug_mask & DEBUG_SUSPEND)
-			pr_info("Tx data during last period\n");
-		mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL*HZ));
-	}
-
-	/* clear the incoming data flag */
-	clear_bit(BT_TXDATA, &flags);
+	if (bsi->has_ext_wake == 1)
+		gpio_set_value(bsi->ext_wake, 1);
+	set_bit(BT_EXT_WAKE, &flags);
+	bluesleep_tx_idle();
 
 	spin_unlock_irqrestore(&rw_lock, irq_flags);
 }
@@ -369,10 +343,6 @@ static int bluesleep_start(void)
 		return -EBUSY;
 	}
 
-	/* start the timer */
-
-	mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL*HZ));
-
 	/* assert BT_WAKE */
 	if (debug_mask & DEBUG_BTWAKE)
 		pr_err("BT WAKE: set to wake\n");
@@ -390,7 +360,6 @@ static int bluesleep_start(void)
 	wake_lock(&bsi->wake_lock);
 	return 0;
 fail:
-	del_timer(&tx_timer);
 	atomic_inc(&open_count);
 
 	return retval;
@@ -416,7 +385,6 @@ static void bluesleep_stop(void)
 	if (bsi->has_ext_wake == 1)
 		gpio_set_value(bsi->ext_wake, 0);
 	clear_bit(BT_EXT_WAKE, &flags);
-	del_timer(&tx_timer);
 	clear_bit(BT_PROTO, &flags);
 
 	if (test_bit(BT_ASLEEP, &flags)) {
@@ -681,9 +649,10 @@ static ssize_t bluesleep_proc_write(struct file *file, const char *buf,
 		}
 		break;
 	case PROC_BTWRITE:
-		/* HCI_DEV_WRITE */
 		if (lbuf[0] != '0')
 			bluesleep_outgoing_data();
+	else
+			bluesleep_tx_allow_sleep();
 		break;
 	default:
 		return 0;
@@ -769,11 +738,6 @@ static int __init bluesleep_init(void)
 	/* Initialize spinlock. */
 	spin_lock_init(&rw_lock);
 
-	/* Initialize timer */
-	init_timer(&tx_timer);
-	tx_timer.function = bluesleep_tx_timer_expire;
-	tx_timer.data = 0;
-
 	/* initialize host wake tasklet */
 	tasklet_init(&hostwake_task, bluesleep_hostwake_task, 0);
 
@@ -810,7 +774,6 @@ static void __exit bluesleep_exit(void)
 		if (disable_irq_wake(bsi->host_wake_irq))
 			pr_err("Couldn't disable hostwake IRQ wakeup mode");
 		free_irq(bsi->host_wake_irq, NULL);
-		del_timer(&tx_timer);
 		if (test_bit(BT_ASLEEP, &flags))
 			hsuart_power(1);
 	}
