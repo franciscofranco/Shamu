@@ -30,8 +30,8 @@
 #include "mdss_panel.h"
 #include "mdss_mdp.h"
 
-#define STATUS_CHECK_INTERVAL 8000
-#define STATUS_CHECK_INTERVAL_MIN 200
+#define STATUS_CHECK_INTERVAL 5000
+#define STATUS_CHECK_INTERVAL_MIN 50
 
 struct dsi_status_data {
 	struct notifier_block fb_notifier;
@@ -39,7 +39,7 @@ struct dsi_status_data {
 	struct msm_fb_data_type *mfd;
 };
 struct dsi_status_data *pstatus_data;
-static uint32_t interval = STATUS_CHECK_INTERVAL;
+static uint32_t interval = STATUS_CHECK_INTERVAL / 2;
 
 /*
  * check_dsi_ctrl_status() - Check DSI controller status periodically.
