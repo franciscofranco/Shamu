@@ -94,3 +94,5 @@ x509.genkey
 arch/arm/crypto/sha256-core.S
 build.sh
 upload.sh
+out/
+version
