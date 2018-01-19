@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2018 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1121,6 +1121,7 @@ struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *img_fname,
 	init_completion(&core->ready_compl);
 	init_waitqueue_head(&core->ssr_entry.offline_poll_wait);
 	mutex_init(&core->ssr_lock);
+	mutex_init(&core->session_lock);
 
 	/*
 	 * By default, during probe, it is assumed that
@@ -1992,6 +1993,7 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 	 * If this is the first session to be allocated,
 	 * only then register the afe service.
 	 */
+	WCD_CPE_GRAB_LOCK(&core->session_lock, "session_lock");
 	if (!wcd_cpe_lsm_session_active())
 		afe_register_service = true;
 
@@ -2003,6 +2005,7 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 		dev_err(core->dev,
 			"%s: max allowed sessions already allocated\n",
 			__func__);
+		WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
 		return NULL;
 	}
 
@@ -2011,6 +2014,7 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 		dev_err(core->dev,
 			"%s: failed to allocate session, no memory\n",
 			__func__);
+		WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
 		return NULL;
 	}
 
@@ -2043,6 +2047,8 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 	init_completion(&session->cmd_comp);
 
 	lsm_sessions[session_id] = session;
+
+	WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
 	return session;
 
 err_afe_svc_reg:
@@ -2050,6 +2056,7 @@ err_afe_svc_reg:
 	mutex_destroy(&session->lsm_lock);
 err_ret:
 	kfree(session);
+	WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
 	return NULL;
 }
 
@@ -2364,10 +2371,12 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 {
 	struct wcd_cpe_core *core = core_handle;
 
+	WCD_CPE_GRAB_LOCK(&core->session_lock, "session_lock");
 	if (!session) {
 		dev_err(core->dev,
 			"%s: Invalid lsm session\n", __func__);
-		return 0;
+		WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
+		return -EINVAL;
 	}
 
 	dev_dbg(core->dev, "%s: session %d being deallocated\n",
@@ -2377,6 +2386,7 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 			"%s: Wrong session id %d max allowed = %d\n",
 			__func__, session->id,
 			WCD_CPE_LSM_MAX_SESSIONS);
+		WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
 		return -EINVAL;
 	}
 
@@ -2391,6 +2401,7 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 		wcd_cpe_deinitialize_afe_port_data();
 	}
 
+	WCD_CPE_REL_LOCK(&core->session_lock, "session_lock");
 	return 0;
 }
 

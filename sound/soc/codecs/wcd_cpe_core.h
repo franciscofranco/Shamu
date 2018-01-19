@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,9 @@ struct wcd_cpe_core {
 
 	/* mutex to protect cpe ssr status variables */
 	struct mutex ssr_lock;
+
+	/* mutex to protect cpe session status variables */
+	struct mutex session_lock;
 };
 
 struct wcd_cpe_params {
