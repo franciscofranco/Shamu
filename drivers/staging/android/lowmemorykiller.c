@@ -250,7 +250,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 	}
 
-	other_free = global_page_state(NR_FREE_PAGES);
+	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 
 	if (global_page_state(NR_SHMEM) + total_swapcache_pages() <
 		global_page_state(NR_FILE_PAGES))
