@@ -661,7 +661,7 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 
 	mdata->debug_inf.debug_data = mdd;
 
-	dbg_iclient = msm_ion_client_create(-1 , "mdss_debug_iclient");
+	dbg_iclient = msm_ion_client_create("mdss_debug_iclient");
 	if (IS_ERR_OR_NULL(dbg_iclient)) {
 		pr_err("Err:client not created, val %d\n",
 			PTR_RET(dbg_iclient));
