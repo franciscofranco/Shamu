@@ -557,3 +557,11 @@ config ZSMALLOC_STAT
 	  statistics about whats happening in zsmalloc and exports that
 	  information to userspace via debugfs.
 	  If unsure, say N.
+
+config VM_MAX_READAHEAD
+	int "default max readahead window size"
+	default 128
+	help
+	 This sets the VM_MAX_READAHEAD value to allow the readahead window
+	 to grow to a maximum size of configured. This will benefit sequential
+	 read throughput and thus early boot performance.
