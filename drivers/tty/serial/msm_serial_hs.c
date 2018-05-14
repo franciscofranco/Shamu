@@ -188,7 +188,6 @@ struct msm_hs_rx {
 	dma_addr_t rbuffer;
 	unsigned char *buffer;
 	unsigned int buffer_pending;
-	char wl_name[32];
 	struct wake_lock wake_lock;
 	struct delayed_work flip_insert_work;
 	struct tasklet_struct tlet;
@@ -228,7 +227,6 @@ struct msm_hs_port {
 	enum msm_hs_clk_req_off_state_e clk_req_off_state;
 	atomic_t clk_count;
 	struct msm_hs_wakeup wakeup;
-	char dma_wl_name[32];
 	struct wake_lock dma_wake_lock;  /* held while any DMA active */
 
 	struct dentry *loopback_dir;
@@ -2745,15 +2743,9 @@ static int uartdm_init_port(struct uart_port *uport)
 	init_waitqueue_head(&rx->wait);
 	init_waitqueue_head(&tx->wait);
 	init_waitqueue_head(&msm_uport->bam_disconnect_wait);
-
-	snprintf(rx->wl_name, sizeof(rx->wl_name), "msm_serial_hs_rx-%u",
-		uport->irq);
-	wake_lock_init(&rx->wake_lock, WAKE_LOCK_SUSPEND, rx->wl_name);
-
-	snprintf(msm_uport->dma_wl_name, sizeof(msm_uport->dma_wl_name),
-		"msm_serial_hs_dma-%u", uport->irq);
+	wake_lock_init(&rx->wake_lock, WAKE_LOCK_SUSPEND, "msm_serial_hs_rx");
 	wake_lock_init(&msm_uport->dma_wake_lock, WAKE_LOCK_SUSPEND,
-		msm_uport->dma_wl_name);
+		       "msm_serial_hs_dma");
 
 	tasklet_init(&rx->tlet, msm_serial_hs_rx_tlet,
 			(unsigned long) &rx->tlet);
