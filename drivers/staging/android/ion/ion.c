@@ -438,13 +438,12 @@ int ion_handle_put(struct ion_handle *handle)
 /* Must hold the client lock */
 static void user_ion_handle_get(struct ion_handle *handle)
 {
-	if (handle->user_ref_count++ == 0) {
+	if (handle->user_ref_count++ == 0)
 		kref_get(&handle->ref);
-	}
 }
 
 /* Must hold the client lock */
-static struct ion_handle* user_ion_handle_get_check_overflow(struct ion_handle *handle)
+static struct ion_handle *user_ion_handle_get_check_overflow(struct ion_handle *handle)
 {
 	if (handle->user_ref_count + 1 == 0)
 		return ERR_PTR(-EOVERFLOW);
@@ -455,7 +454,7 @@ static struct ion_handle* user_ion_handle_get_check_overflow(struct ion_handle *
 /* passes a kref to the user ref count.
  * We know we're holding a kref to the object before and
  * after this call, so no need to reverify handle. */
-static struct ion_handle* pass_to_user(struct ion_handle *handle)
+static struct ion_handle *pass_to_user(struct ion_handle *handle)
 {
 	struct ion_client *client = handle->client;
 	struct ion_handle *ret;
@@ -472,9 +471,8 @@ static int user_ion_handle_put_nolock(struct ion_handle *handle)
 {
 	int ret = 0;
 
-	if (--handle->user_ref_count == 0) {
+	if (--handle->user_ref_count == 0)
 		ret = ion_handle_put_nolock(handle);
-	}
 
 	return ret;
 }
@@ -695,6 +693,7 @@ static void ion_free_nolock(struct ion_client *client, struct ion_handle *handle
 	ion_handle_put_nolock(handle);
 }
 
+/* Must hold the client lock */
 static void user_ion_free_nolock(struct ion_client *client, struct ion_handle *handle)
 {
 	bool valid_handle;
