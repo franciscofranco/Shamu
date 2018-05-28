@@ -1525,8 +1525,8 @@ static void mxt_proc_t93_messages(struct mxt_data *data, u8 *msg)
 		struct device *dev = &data->client->dev;
 		struct input_dev *input_dev = data->input_dev;
 
-		input_report_key(input_dev, KEY_POWER, 1);
-		input_report_key(input_dev, KEY_POWER, 0);
+		input_report_key(input_dev, KEY_WAKEUP, 1);
+		input_report_key(input_dev, KEY_WAKEUP, 0);
 		input_sync(input_dev);
 
 		dev_dbg(dev, "T93 status %s\n", (status & 0x2) ? "DBLTAP" : "");
@@ -3152,7 +3152,7 @@ static int mxt_initialize_t100_input_device(struct mxt_data *data)
 					     data->pdata->t15_keymap[i]);
 	}
 
-	input_set_capability(input_dev, EV_KEY, KEY_POWER);
+	input_set_capability(input_dev, EV_KEY, KEY_WAKEUP);
 
 	return 0;
 }
