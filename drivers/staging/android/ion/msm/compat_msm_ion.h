@@ -25,7 +25,7 @@ long compat_msm_ion_ioctl(struct ion_client *client, unsigned int cmd,
 
 #else
 
-#define compat_msm_ion_ioctl  msm_ion_custom_ioctl
+#define compat_msm_ion_ioctl  NULL
 
 #endif
 #endif

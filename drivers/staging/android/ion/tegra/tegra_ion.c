@@ -20,11 +20,12 @@
 #include "../ion.h"
 #include "../ion_priv.h"
 
-static struct ion_device *idev;
-static int num_heaps;
-static struct ion_heap **heaps;
+struct ion_device *idev;
+struct ion_mapper *tegra_user_mapper;
+int num_heaps;
+struct ion_heap **heaps;
 
-static int tegra_ion_probe(struct platform_device *pdev)
+int tegra_ion_probe(struct platform_device *pdev)
 {
 	struct ion_platform_data *pdata = pdev->dev.platform_data;
 	int err;
@@ -34,7 +35,7 @@ static int tegra_ion_probe(struct platform_device *pdev)
 
 	heaps = kzalloc(sizeof(struct ion_heap *) * pdata->nr, GFP_KERNEL);
 
-	idev = ion_device_create(NULL);
+	idev = ion_device_create(NULL, NULL);
 	if (IS_ERR_OR_NULL(idev)) {
 		kfree(heaps);
 		return PTR_ERR(idev);
@@ -62,7 +63,7 @@ err:
 	return err;
 }
 
-static int tegra_ion_remove(struct platform_device *pdev)
+int tegra_ion_remove(struct platform_device *pdev)
 {
 	struct ion_device *idev = platform_get_drvdata(pdev);
 	int i;
@@ -80,5 +81,16 @@ static struct platform_driver ion_driver = {
 	.driver = { .name = "ion-tegra" }
 };
 
-module_platform_driver(ion_driver);
+static int __init ion_init(void)
+{
+	return platform_driver_register(&ion_driver);
+}
+
+static void __exit ion_exit(void)
+{
+	platform_driver_unregister(&ion_driver);
+}
+
+module_init(ion_init);
+module_exit(ion_exit);
 

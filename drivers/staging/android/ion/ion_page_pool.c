@@ -35,7 +35,7 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 		return NULL;
 
 	if (pool->gfp_mask & __GFP_ZERO)
-		if (msm_ion_heap_high_order_page_zero(page, pool->order))
+		if (ion_heap_high_order_page_zero(page, pool->order))
 			goto error_free_pages;
 
 	return page;
@@ -126,6 +126,7 @@ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 				int nr_to_scan)
 {
+	int nr_freed = 0;
 	int i;
 	bool high;
 
@@ -133,6 +134,9 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 		high = 1;
 	else
 		high = !!(gfp_mask & __GFP_HIGHMEM);
+
+	if (nr_to_scan == 0)
+		return ion_page_pool_total(pool, high);
 
 	for (i = 0; i < nr_to_scan; i++) {
 		struct page *page;
@@ -148,9 +152,10 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 		}
 		mutex_unlock(&pool->mutex);
 		ion_page_pool_free_pages(pool, page);
+		nr_freed += (1 << pool->order);
 	}
 
-	return ion_page_pool_total(pool, high);
+	return nr_freed;
 }
 
 struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)

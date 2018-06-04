@@ -54,6 +54,9 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 				unsigned long arg);
 
 #ifdef CONFIG_CMA
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *);
+void ion_cma_heap_destroy(struct ion_heap *);
+
 struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *);
 void ion_secure_cma_heap_destroy(struct ion_heap *);
 
@@ -123,6 +126,4 @@ int ion_heap_allow_handle_secure(enum ion_heap_type type);
  */
 struct sg_table *ion_create_chunked_sg_table(phys_addr_t buffer_base,
 					size_t chunk_size, size_t total_size);
-
-void show_ion_usage(struct ion_device *dev);
 #endif /* _MSM_ION_PRIV_H */

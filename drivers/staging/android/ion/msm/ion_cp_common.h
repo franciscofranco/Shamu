@@ -74,6 +74,11 @@ int ion_cp_secure_buffer(struct ion_buffer *buffer, int version, void *data,
 
 int ion_cp_unsecure_buffer(struct ion_buffer *buffer, int force_unsecure);
 
+int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
+			int flags);
+
+int msm_ion_unsecure_table(struct sg_table *table);
+
 bool msm_secure_v2_is_supported(void);
 
 #else
@@ -110,7 +115,18 @@ static inline int ion_cp_unsecure_buffer(struct ion_buffer *buffer,
 	return -ENODEV;
 }
 
-static inline bool msm_secure_v2_is_supported(void)
+int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
+			int flags)
+{
+	return -ENODEV;
+}
+
+int msm_ion_unsecure_table(struct sg_table *table)
+{
+	return -ENODEV;
+}
+
+bool msm_secure_v2_is_supported(void)
 {
 	return false;
 }
