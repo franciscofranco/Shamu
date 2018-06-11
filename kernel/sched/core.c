@@ -1897,6 +1897,10 @@ static void __sched_fork(struct task_struct *p)
 	memset(&p->se.statistics, 0, sizeof(p->se.statistics));
 #endif
 
+#ifdef CONFIG_CPU_FREQ_STAT
+	cpufreq_task_stats_init(p);
+#endif
+
 	INIT_LIST_HEAD(&p->rt.run_list);
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
@@ -1945,11 +1949,11 @@ void sched_fork(struct task_struct *p)
 	unsigned long flags;
 	int cpu = get_cpu();
 
-#ifdef CONFIG_CPU_FREQ_STAT
-	cpufreq_task_stats_init(p);
-#endif
-
 	__sched_fork(p);
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	cpufreq_task_stats_alloc(p);
+#endif
 
 	/*
 	 * We mark the process as running here. This guarantees that
