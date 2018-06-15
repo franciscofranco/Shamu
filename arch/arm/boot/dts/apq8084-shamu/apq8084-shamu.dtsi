@@ -231,13 +231,16 @@
 			reg = <0xc600 0x100>;
 			status = "okay";
 			qcom,led_gpio_7 {
-				label = "gpio";
+				label = "rgb";
 				linux,name = "red";
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <2>;
 				qcom,max-current = <20>;
-				qcom,id = <8>;
-				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
-				qcom,vin-ctrl = <0x02>;
+				qcom,default-state = "on";
+				qcom,turn-off-delay-ms = <500>;
+				qcom,id = <5>;
+				linux,default-trigger = "none";
+				qcom,pwm-us = <1000>;
 			};
 		};
 
@@ -246,13 +249,16 @@
 			reg = <0xc700 0x100>;
 			status = "okay";
 			qcom,led_gpio_8 {
-				label = "gpio";
+				label = "rgb";
 				linux,name = "green";
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <3>;
 				qcom,max-current = <20>;
-				qcom,id = <8>;
-				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
-				qcom,vin-ctrl = <0x02>;
+				qcom,default-state = "on";
+				qcom,turn-off-delay-ms = <500>;
+				qcom,id = <5>;
+				linux,default-trigger = "none";
+				qcom,pwm-us = <1000>;
 			};
 		};
 
@@ -261,13 +267,16 @@
 			reg = <0xc800 0x100>;
 			status = "okay";
 			qcom,led_gpio_9 {
-				label = "gpio";
+				label = "rgb";
 				linux,name = "blue";
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <4>;
 				qcom,max-current = <20>;
-				qcom,id = <8>;
-				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
-				qcom,vin-ctrl = <0x02>;
+				qcom,default-state = "on";
+				qcom,turn-off-delay-ms = <500>;
+				qcom,id = <5>;
+				linux,default-trigger = "none";
+				qcom,pwm-us = <1000>;
 			};
 		};
 	};
