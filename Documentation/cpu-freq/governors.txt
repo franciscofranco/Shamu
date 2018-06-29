@@ -302,6 +302,15 @@ boostpulse_duration: Length of time to hold CPU speed at hispeed_freq
 on a write to boostpulse, before allowing speed to drop according to
 load as usual.  Default is 80000 uS.
 
+align_windows: If non-zero, align governor timer window to fire at
+multiples of number of jiffies timer_rate converts to.
+
+max_freq_hysteresis: Each time freq evaluation chooses policy->max,
+next max_freq_hysteresis is considered as hysteresis period. During
+this period, frequency target will not drop below hispeed_freq, no
+matter how light actual workload is. If CPU load of any sampling
+window exceeds go_hispeed_load during this period, governor will
+directly increase frequency back to policy->max. Default is 0 uS.
 
 3. The Governor Interface in the CPUfreq Core
 =============================================
