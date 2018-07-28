@@ -629,16 +629,18 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		for_each_cpu(cpu, &tmp_mask) {
 			pcpu = &per_cpu(cpuinfo, cpu);
 
-			down_write(&pcpu->policy->rwsem);
+			if (unlikely(!down_read_trylock(&pcpu->enable_sem)))
+				continue;
 
-			if (likely(down_read_trylock(&pcpu->enable_sem))) {
-				if (likely(pcpu->governor_enabled))
-					cpufreq_interactive_adjust_cpu(cpu,
-							pcpu->policy);
+			if (unlikely(!pcpu->governor_enabled)) {
 				up_read(&pcpu->enable_sem);
+				continue;
 			}
 
-			up_write(&pcpu->policy->rwsem);
+			cpufreq_interactive_adjust_cpu(cpu, pcpu->policy);
+
+			up_read(&pcpu->enable_sem);
+
 		}
 	}
 
