@@ -2968,10 +2968,6 @@ void dump_stack_print_info(const char *log_lvl)
 void show_regs_print_info(const char *log_lvl)
 {
 	dump_stack_print_info(log_lvl);
-
-	printk("%stask: %p ti: %p task.ti: %p\n",
-	       log_lvl, current, current_thread_info(),
-	       task_thread_info(current));
 }
 
 #endif
