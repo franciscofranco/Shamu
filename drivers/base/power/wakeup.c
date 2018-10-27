@@ -478,9 +478,7 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 		 * clearly doesn't want it. The user is responsible for any
 		 * adverse effects and has been warned about it
 		 */
-		if (ws->active)
-			wakeup_source_deactivate(ws);
-
+		wakeup_source_deactivate(ws);
 		return;
 	}
 
