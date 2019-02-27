@@ -1,5 +1,5 @@
  /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,12 +23,16 @@
 #define RMNET_EGRESS_FORMAT_MAP                 (1<<1)
 #define RMNET_EGRESS_FORMAT_AGGREGATION         (1<<2)
 #define RMNET_EGRESS_FORMAT_MUXING              (1<<3)
+#define RMNET_EGRESS_FORMAT_MAP_CKSUMV3         (1<<4)
+#define RMNET_EGRESS_FORMAT_MAP_CKSUMV4         (1<<5)
 
 #define RMNET_INGRESS_FIX_ETHERNET              (1<<0)
 #define RMNET_INGRESS_FORMAT_MAP                (1<<1)
 #define RMNET_INGRESS_FORMAT_DEAGGREGATION      (1<<2)
 #define RMNET_INGRESS_FORMAT_DEMUXING           (1<<3)
 #define RMNET_INGRESS_FORMAT_MAP_COMMANDS       (1<<4)
+#define RMNET_INGRESS_FORMAT_MAP_CKSUMV3        (1<<5)
+#define RMNET_INGRESS_FORMAT_MAP_CKSUMV4        (1<<6)
 
 /* ***************** Netlink API ******************************************** */
 #define RMNET_NETLINK_PROTO 31
@@ -219,8 +223,19 @@ enum rmnet_netlink_message_types_e {
 	 *       uint32_t MAP Flow Handle
 	 * Returns: status code
 	 */
-	RMNET_NETLINK_DEL_VND_TC_FLOW
+	RMNET_NETLINK_DEL_VND_TC_FLOW,
+
+	/*
+	 * RMNET_NETLINK_NEW_VND_WITH_NAME - Creates a new virtual network
+	 *                                   device node with the specified
+	 *                                   device name
+	 * Args: int32_t node number
+	 *       char[] vnd_name - Use as name
+	 * Returns: status code
+	 */
+	RMNET_NETLINK_NEW_VND_WITH_NAME
 };
+#define RMNET_NETLINK_NEW_VND_WITH_NAME RMNET_NETLINK_NEW_VND_WITH_NAME
 
 enum rmnet_config_endpoint_modes_e {
 	RMNET_EPMODE_NONE,

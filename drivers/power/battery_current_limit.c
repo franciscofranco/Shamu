@@ -1226,7 +1226,7 @@ static int bcl_probe(struct platform_device *pdev)
 	gbcl = bcl;
 	platform_set_drvdata(pdev, bcl);
 	bcl->battery_monitor_wq = alloc_workqueue(
-				"battery_monitor", WQ_MEM_RECLAIM, 1);
+				"battery_monitor", WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
 	if (!bcl->battery_monitor_wq) {
 			pr_err("Requesting  battery_monitor wq failed\n");
 			return 0;

@@ -290,6 +290,9 @@ static unsigned long vmap_area_pcpu_hole;
 #define VMALLOC_TO_BIT(addr)	((addr - PAGE_OFFSET) >> PAGE_SHIFT)
 #define BIT_TO_VMALLOC(i)	(PAGE_OFFSET + i * PAGE_SIZE)
 
+unsigned long total_vmalloc_size;
+unsigned long vmalloc_reserved;
+
 DECLARE_BITMAP(possible_areas, VMALLOC_BITMAP_SIZE);
 
 void mark_vmalloc_reserved_area(void *x, unsigned long size)
@@ -297,6 +300,7 @@ void mark_vmalloc_reserved_area(void *x, unsigned long size)
 	unsigned long addr = (unsigned long)x;
 
 	bitmap_set(possible_areas, VMALLOC_TO_BIT(addr), size >> PAGE_SHIFT);
+	vmalloc_reserved += size;
 }
 
 int is_vmalloc_addr(const void *x)
@@ -311,6 +315,12 @@ int is_vmalloc_addr(const void *x)
 
 	return 1;
 }
+
+static void calc_total_vmalloc_size(void)
+{
+	total_vmalloc_size = VMALLOC_END - POSSIBLE_VMALLOC_START -
+		vmalloc_reserved;
+}
 #else
 int is_vmalloc_addr(const void *x)
 {
@@ -318,6 +328,8 @@ int is_vmalloc_addr(const void *x)
 
 	return addr >= VMALLOC_START && addr < VMALLOC_END;
 }
+
+static void calc_total_vmalloc_size(void) { }
 #endif
 EXPORT_SYMBOL(is_vmalloc_addr);
 
@@ -399,6 +411,12 @@ static struct vmap_area *alloc_vmap_area(unsigned long size,
 			gfp_mask & GFP_RECLAIM_MASK, node);
 	if (unlikely(!va))
 		return ERR_PTR(-ENOMEM);
+
+	/*
+	 * Only scan the relevant parts containing pointers to other objects
+	 * to avoid false negatives.
+	 */
+	kmemleak_scan_area(&va->rb_node, SIZE_MAX, gfp_mask & GFP_RECLAIM_MASK);
 
 retry:
 	spin_lock(&vmap_area_lock);
@@ -1081,15 +1099,16 @@ void vm_unmap_aliases(void)
 
 		rcu_read_lock();
 		list_for_each_entry_rcu(vb, &vbq->free, free_list) {
-			int i;
+			int i, j;
 
 			spin_lock(&vb->lock);
 			i = find_first_bit(vb->dirty_map, VMAP_BBMAP_BITS);
-			while (i < VMAP_BBMAP_BITS) {
+			if (i < VMAP_BBMAP_BITS) {
 				unsigned long s, e;
-				int j;
-				j = find_next_zero_bit(vb->dirty_map,
-					VMAP_BBMAP_BITS, i);
+
+				j = find_last_bit(vb->dirty_map,
+							VMAP_BBMAP_BITS);
+				j = j + 1; /* need exclusive index */
 
 				s = vb->va->va_start + (i << PAGE_SHIFT);
 				e = vb->va->va_start + (j << PAGE_SHIFT);
@@ -1099,10 +1118,6 @@ void vm_unmap_aliases(void)
 					start = s;
 				if (e > end)
 					end = e;
-
-				i = j;
-				i = find_next_bit(vb->dirty_map,
-							VMAP_BBMAP_BITS, i);
 			}
 			spin_unlock(&vb->lock);
 		}
@@ -1285,6 +1300,7 @@ void __init vmalloc_init(void)
 
 	vmap_area_pcpu_hole = VMALLOC_END;
 
+	calc_total_vmalloc_size();
 	vmap_initialized = true;
 }
 
@@ -1683,7 +1699,8 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	const int order = 0;
 	struct page **pages;
 	unsigned int nr_pages, array_size, i;
-	gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
+	const gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
+	const gfp_t alloc_mask = gfp_mask | __GFP_NOWARN;
 
 	nr_pages = (area->size - PAGE_SIZE) >> PAGE_SHIFT;
 	array_size = (nr_pages * sizeof(struct page *));
@@ -1707,12 +1724,11 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 
 	for (i = 0; i < area->nr_pages; i++) {
 		struct page *page;
-		gfp_t tmp_mask = gfp_mask | __GFP_NOWARN;
 
-		if (node < 0)
-			page = alloc_page(tmp_mask);
+		if (node == NUMA_NO_NODE)
+			page = alloc_page(alloc_mask);
 		else
-			page = alloc_pages_node(node, tmp_mask, order);
+			page = alloc_pages_node(node, alloc_mask, order);
 
 		if (unlikely(!page)) {
 			/* Successfully allocated i pages, free them in __vunmap() */
@@ -1783,11 +1799,11 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 	clear_vm_unlist(area);
 
 	/*
-	 * A ref_count = 3 is needed because the vm_struct and vmap_area
-	 * structures allocated in the __get_vm_area_node() function contain
-	 * references to the virtual address of the vmalloc'ed block.
+	 * A ref_count = 2 is needed because vm_struct allocated in
+	 * __get_vm_area_node() contains a reference to the virtual address of
+	 * the vmalloc'ed block.
 	 */
-	kmemleak_alloc(addr, real_size, 3, gfp_mask);
+	kmemleak_alloc(addr, real_size, 2, gfp_mask);
 
 	return addr;
 
@@ -2722,19 +2738,19 @@ static int s_show(struct seq_file *m, void *p)
 		seq_printf(m, " phys=%llx", (unsigned long long)v->phys_addr);
 
 	if (v->flags & VM_IOREMAP)
-		seq_printf(m, " ioremap");
+		seq_puts(m, " ioremap");
 
 	if (v->flags & VM_ALLOC)
-		seq_printf(m, " vmalloc");
+		seq_puts(m, " vmalloc");
 
 	if (v->flags & VM_MAP)
-		seq_printf(m, " vmap");
+		seq_puts(m, " vmap");
 
 	if (v->flags & VM_USERMAP)
-		seq_printf(m, " user");
+		seq_puts(m, " user");
 
 	if (v->flags & VM_VPAGES)
-		seq_printf(m, " vpages");
+		seq_puts(m, " vpages");
 
 	if (v->flags & VM_LOWMEM)
 		seq_printf(m, " lowmem");
@@ -2784,52 +2800,5 @@ static int __init proc_vmalloc_init(void)
 }
 module_init(proc_vmalloc_init);
 
-void get_vmalloc_info(struct vmalloc_info *vmi)
-{
-	struct vmap_area *va;
-	unsigned long free_area_size;
-	unsigned long prev_end;
-
-	vmi->used = 0;
-	vmi->largest_chunk = 0;
-
-	prev_end = VMALLOC_START;
-
-	spin_lock(&vmap_area_lock);
-
-	if (list_empty(&vmap_area_list)) {
-		vmi->largest_chunk = VMALLOC_TOTAL;
-		goto out;
-	}
-
-	list_for_each_entry(va, &vmap_area_list, list) {
-		unsigned long addr = va->va_start;
-
-		/*
-		 * Some archs keep another range for modules in vmalloc space
-		 */
-		if (addr < VMALLOC_START)
-			continue;
-		if (addr >= VMALLOC_END)
-			break;
-
-		if (va->flags & (VM_LAZY_FREE | VM_LAZY_FREEING))
-			continue;
-
-		vmi->used += (va->va_end - va->va_start);
-
-		free_area_size = addr - prev_end;
-		if (vmi->largest_chunk < free_area_size)
-			vmi->largest_chunk = free_area_size;
-
-		prev_end = va->va_end;
-	}
-
-	if (VMALLOC_END - prev_end > vmi->largest_chunk)
-		vmi->largest_chunk = VMALLOC_END - prev_end;
-
-out:
-	spin_unlock(&vmap_area_lock);
-}
 #endif
 
