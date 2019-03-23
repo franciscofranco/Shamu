@@ -2097,13 +2097,8 @@ static int max17042_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->iterm_work,
 			  iterm_work);
 
-<<<<<<< HEAD
-	queue_delayed_work(system_power_efficient_wq,
-		&chip->iterm_work, msecs_to_jiffies(10000));
-=======
 	queue_delayed_work(system_power_efficient_wq, &chip->iterm_work,
 			      msecs_to_jiffies(10000));
->>>>>>> lineageos/lineage-15.1
 
 	return 0;
 }

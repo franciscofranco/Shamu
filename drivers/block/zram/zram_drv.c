@@ -272,6 +272,8 @@ static ssize_t comp_algorithm_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
 	struct zram *zram = dev_to_zram(dev);
+	size_t sz;
+
 	down_write(&zram->init_lock);
 	if (init_done(zram)) {
 		up_write(&zram->init_lock);
@@ -279,6 +281,15 @@ static ssize_t comp_algorithm_store(struct device *dev,
 		return -EBUSY;
 	}
 	strlcpy(zram->compressor, buf, sizeof(zram->compressor));
+
+	/* ignore trailing newline */
+	sz = strlen(zram->compressor);
+	if (sz > 0 && zram->compressor[sz - 1] == '\n')
+		zram->compressor[sz - 1] = 0x00;
+
+	if (!zcomp_available_algorithm(zram->compressor))
+		len = -EINVAL;
+
 	up_write(&zram->init_lock);
 	return len;
 }
@@ -491,13 +502,13 @@ static int zram_decompress_page(struct zram *zram, char *mem, u32 index)
 
 	if (!handle || zram_test_flag(meta, index, ZRAM_ZERO)) {
 		bit_spin_unlock(ZRAM_ACCESS, &meta->table[index].value);
-		clear_page(mem);
+		memset(mem, 0, PAGE_SIZE);
 		return 0;
 	}
 
 	cmem = zs_map_object(meta->mem_pool, handle, ZS_MM_RO);
 	if (size == PAGE_SIZE)
-		copy_page(mem, cmem);
+		memcpy(mem, cmem, PAGE_SIZE);
 	else
 		ret = zcomp_decompress(zram->comp, cmem, size, mem);
 	zs_unmap_object(meta->mem_pool, handle);
@@ -672,7 +683,7 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 
 	if ((clen == PAGE_SIZE) && !is_partial_io(bvec)) {
 		src = kmap_atomic(page);
-		copy_page(cmem, src);
+		memcpy(cmem, src, PAGE_SIZE);
 		kunmap_atomic(src);
 	} else {
 		memcpy(cmem, src, clen);

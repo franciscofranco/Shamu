@@ -63,7 +63,7 @@ struct tipc_sock {
 static int backlog_rcv(struct sock *sk, struct sk_buff *skb);
 static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf);
 static void wakeupdispatch(struct tipc_port *tport);
-static void tipc_data_ready(struct sock *sk, int len);
+static void tipc_data_ready(struct sock *sk);
 static void tipc_write_space(struct sock *sk);
 
 static const struct proto_ops packet_ops;
@@ -1127,7 +1127,7 @@ static void tipc_write_space(struct sock *sk)
  * @sk: socket
  * @len: the length of messages
  */
-static void tipc_data_ready(struct sock *sk, int len)
+static void tipc_data_ready(struct sock *sk)
 {
 	struct socket_wq *wq;
 
@@ -1287,7 +1287,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
 	__skb_queue_tail(&sk->sk_receive_queue, buf);
 	skb_set_owner_r(buf, sk);
 
-	sk->sk_data_ready(sk, 0);
+	sk->sk_data_ready(sk);
 	return TIPC_OK;
 }
 

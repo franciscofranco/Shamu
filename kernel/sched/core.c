@@ -1986,6 +1986,11 @@ void sched_fork(struct task_struct *p)
 	int cpu = get_cpu();
 
 	__sched_fork(p);
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	cpufreq_task_stats_alloc(p);
+#endif
+
 	/*
 	 * We mark the process as running here. This guarantees that
 	 * nobody will actually run it, and a signal or other external
@@ -7160,17 +7165,16 @@ static int cpuset_cpu_active(struct notifier_block *nfb, unsigned long action,
 		 * operation in the resume sequence, just build a single sched
 		 * domain, ignoring cpusets.
 		 */
-		num_cpus_frozen--;
-		if (likely(num_cpus_frozen)) {
-			partition_sched_domains(1, NULL, NULL);
+		partition_sched_domains(1, NULL, NULL);
+		if (--num_cpus_frozen)
 			break;
-		}
 
 		/*
 		 * This is the last CPU online operation. So fall through and
 		 * restore the original sched domains by considering the
 		 * cpuset configurations.
 		 */
+		cpuset_force_rebuild();
 
 	case CPU_ONLINE:
 	case CPU_DOWN_FAILED:
